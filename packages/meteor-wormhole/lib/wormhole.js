@@ -6,7 +6,7 @@ import { McpBridge } from './mcp-bridge';
  * Wormhole — the main API for connecting Meteor methods to MCP.
  *
  * Usage:
- *   import { Wormhole } from 'meteor/meteor-wormhole';
+ *   import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
  *   Wormhole.init({ mode: 'all' });
  *
  * OR:

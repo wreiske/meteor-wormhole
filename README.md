@@ -50,7 +50,7 @@ METEOR_PACKAGE_DIRS=../../packages npx meteor@latest
 ```js
 // server/main.js
 import { Meteor } from 'meteor/meteor';
-import { Wormhole } from 'meteor/meteor-wormhole';
+import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
 
 // All-in mode: expose all methods
 Wormhole.init({ mode: 'all', path: '/mcp' });
@@ -67,7 +67,7 @@ Meteor.methods({
 
 ```js
 // Opt-in mode: expose specific methods
-import { Wormhole } from 'meteor/meteor-wormhole';
+import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
 
 Wormhole.init({ mode: 'opt-in', path: '/mcp' });
 

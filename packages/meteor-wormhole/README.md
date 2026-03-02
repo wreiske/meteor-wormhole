@@ -7,13 +7,13 @@ This Meteor package exposes your `Meteor.methods` as [MCP (Model Context Protoco
 ## Install
 
 ```bash
-meteor add meteor-wormhole
+meteor add wreiske:meteor-wormhole
 ```
 
 ## Usage
 
 ```js
-import { Wormhole } from 'meteor/meteor-wormhole';
+import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
 
 // All-in mode (default): auto-expose all methods
 Wormhole.init({ mode: 'all' });

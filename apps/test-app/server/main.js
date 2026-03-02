@@ -1,5 +1,5 @@
 import { Meteor } from 'meteor/meteor';
-import { Wormhole } from 'meteor/meteor-wormhole';
+import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
 
 // --- Initialize Wormhole in "all-in" mode ---
 // All methods defined below will be auto-exposed as MCP tools.

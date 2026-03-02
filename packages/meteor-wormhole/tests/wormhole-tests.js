@@ -1,5 +1,5 @@
 import { Tinytest } from 'meteor/tinytest';
-import { Wormhole } from 'meteor/meteor-wormhole';
+import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
 
 // Helper: reset Wormhole state before each test
 function withReset(fn) {

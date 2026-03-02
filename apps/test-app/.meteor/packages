@@ -16,5 +16,5 @@ typescript@5.4.3              # Enable TypeScript syntax in .ts and .tsx modules
 shell-server@0.6.0            # Server-side component of the `meteor shell` command
 hot-module-replacement@0.5.4  # Update running client modules by patching them in-place
 
-meteor-wormhole
+wreiske:meteor-wormhole
 rspack
