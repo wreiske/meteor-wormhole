@@ -5,6 +5,7 @@ babel-runtime@1.5.2
 base64@1.0.13
 binary-heap@1.0.12
 boilerplate-generator@2.1.0
+caching-compiler@2.0.1
 callback-hook@1.6.1
 check@1.5.0
 core-runtime@1.0.0
@@ -30,7 +31,6 @@ inter-process-messaging@0.1.2
 logging@1.3.6
 meteor@2.2.0
 meteor-base@1.5.2
-wreiske:meteor-wormhole@0.1.0
 minifier-css@2.0.1
 minifier-js@3.1.0
 minimongo@2.0.5
@@ -47,6 +47,7 @@ ordered-dict@1.2.0
 promise@1.0.0
 random@1.2.2
 react-fast-refresh@0.3.0
+react-meteor-data@4.0.1
 reactive-var@1.0.13
 reload@1.3.2
 retry@1.1.1
@@ -56,8 +57,12 @@ shell-server@0.7.0
 socket-stream-client@0.6.1
 standard-minifier-css@1.10.0
 standard-minifier-js@3.2.0
+static-html@1.5.0
+static-html-tools@1.0.0
 tools-core@1.0.0
 tracker@1.3.4
 typescript@5.9.3
 webapp@2.1.0
 webapp-hashing@1.1.2
+wreiske:meteor-wormhole@0.1.0
+zodern:types@1.0.13

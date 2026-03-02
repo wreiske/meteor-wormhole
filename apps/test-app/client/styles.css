@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+body {
+  -webkit-font-smoothing: antialiased;
+  @apply bg-neutral-950 text-neutral-100;
+}
