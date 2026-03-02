@@ -17,3 +17,4 @@ shell-server@0.6.0            # Server-side component of the `meteor shell` comm
 hot-module-replacement@0.5.4  # Update running client modules by patching them in-place
 
 meteor-wormhole
+rspack
