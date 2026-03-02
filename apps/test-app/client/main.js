@@ -1,0 +1,1 @@
+// Minimal client entry - not needed for MCP testing

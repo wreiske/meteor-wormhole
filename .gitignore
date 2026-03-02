@@ -1,0 +1,8 @@
+node_modules/
+.npm/
+.meteor/local/
+.meteor/meteorite/
+.meteor/.finished-upgraders
+.meteor/.gitignore
+.meteor/.id
+.meteor/versions

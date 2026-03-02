@@ -1,0 +1,9 @@
+{
+  "name": "meteor-wormhole-monorepo",
+  "private": true,
+  "description": "Monorepo for meteor-wormhole: A cosmic bridge connecting Meteor methods to AI agents through MCP",
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "test:client": "cd test-client && node index.mjs"
+  }
+}

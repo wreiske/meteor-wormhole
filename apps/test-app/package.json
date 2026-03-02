@@ -1,0 +1,14 @@
+{
+  "name": "meteor-wormhole-test-app",
+  "private": true,
+  "scripts": {
+    "start": "METEOR_PACKAGE_DIRS=../../packages meteor",
+    "test-packages": "METEOR_PACKAGE_DIRS=../../packages meteor test-packages ../../packages/meteor-wormhole/"
+  },
+  "meteor": {
+    "mainModule": {
+      "client": "client/main.js",
+      "server": "server/main.js"
+    }
+  }
+}
