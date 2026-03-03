@@ -1,5 +1,6 @@
 import './styles.css';
 
+import React from 'react';
 import { Meteor } from 'meteor/meteor';
 import { createRoot } from 'react-dom/client';
 

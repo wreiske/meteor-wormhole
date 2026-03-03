@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'motion/react';
 import hljs from 'highlight.js/lib/core';
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -147,6 +147,9 @@ function Navbar() {
           </a>
           <a href="#quickstart" className="text-neutral-400 hover:text-white transition">
             Quick Start
+          </a>
+          <a href="#security" className="text-neutral-400 hover:text-white transition">
+            Security
           </a>
           <a href="#tester" className="text-neutral-400 hover:text-white transition">
             Tester
@@ -824,6 +827,411 @@ function ApiReference() {
   );
 }
 
+// ─── Security & Best Practices ──────────────────────────────────────────────
+
+const AUTH_BASIC_CODE = `import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
+
+// Require a Bearer token on every MCP request
+Wormhole.init({
+  mode: 'all',
+  path: '/mcp',
+  apiKey: process.env.MCP_API_KEY, // never hard-code secrets
+});`;
+
+const AUTH_METHOD_CODE = `Meteor.methods({
+  'documents.delete'(documentId) {
+    // MCP calls run without a Meteor user session,
+    // so validate ownership via your own logic.
+    const doc = Documents.findOne(documentId);
+    if (!doc) {
+      throw new Meteor.Error('not-found', 'Document not found');
+    }
+
+    // Use a service-level permission check instead of
+    // relying on this.userId (which is null for MCP calls).
+    if (!doc.allowMcpAccess) {
+      throw new Meteor.Error(
+        'forbidden',
+        'This document is not accessible via MCP'
+      );
+    }
+
+    Documents.remove(documentId);
+    return { deleted: documentId };
+  },
+});`;
+
+const AUTH_OPTIN_CODE = `import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
+
+// Opt-in mode: only methods you explicitly expose are visible
+Wormhole.init({ mode: 'opt-in', path: '/mcp' });
+
+// Expose only safe, read-only tools
+Wormhole.expose('reports.summary', {
+  description: 'Get a summary of recent reports',
+});
+
+Wormhole.expose('search.products', {
+  description: 'Search product catalog',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      query: { type: 'string', description: 'Search query' },
+      limit: { type: 'number', description: 'Max results (default 10)' },
+    },
+    required: ['query'],
+  },
+});
+
+// Destructive methods like 'products.delete' are never exposed`;
+
+const AUTH_EXCLUDE_CODE = `import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
+
+Wormhole.init({
+  mode: 'all',
+  path: '/mcp',
+  apiKey: process.env.MCP_API_KEY,
+  exclude: [
+    /^admin\\./,     // all admin methods
+    /^billing\\./,   // payment & billing
+    'users.delete',  // specific dangerous method
+    /\\.dangerous$/,  // any method ending in .dangerous
+  ],
+});`;
+
+const AUTH_VALIDATE_CODE = `Meteor.methods({
+  'orders.create'({ productId, quantity }) {
+    // Validate input at system boundaries
+    if (typeof productId !== 'string' || productId.length === 0) {
+      throw new Meteor.Error('validation-error', 'productId is required');
+    }
+    if (typeof quantity !== 'number' || quantity < 1 || quantity > 100) {
+      throw new Meteor.Error(
+        'validation-error',
+        'quantity must be between 1 and 100'
+      );
+    }
+
+    const product = Products.findOne(productId);
+    if (!product || !product.inStock) {
+      throw new Meteor.Error('not-found', 'Product unavailable');
+    }
+
+    return Orders.insert({
+      productId,
+      quantity,
+      status: 'pending',
+      createdAt: new Date(),
+    });
+  },
+});`;
+
+const SECURITY_PRACTICES = [
+  {
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+        />
+      </svg>
+    ),
+    color: 'text-red-400',
+    bg: 'bg-red-400/10 border-red-400/20',
+    title: 'Always Use an API Key in Production',
+    desc: 'Set the apiKey option and load it from an environment variable. Without an API key, anyone can call your MCP endpoint.',
+  },
+  {
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+        />
+      </svg>
+    ),
+    color: 'text-green-400',
+    bg: 'bg-green-400/10 border-green-400/20',
+    title: 'Prefer Opt-In Mode',
+    desc: 'Use mode: "opt-in" and explicitly expose only methods that are safe for AI agents. This gives you full control over what\u2019s accessible.',
+  },
+  {
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+        />
+      </svg>
+    ),
+    color: 'text-orange-400',
+    bg: 'bg-orange-400/10 border-orange-400/20',
+    title: 'Exclude Sensitive Methods',
+    desc: 'In all-in mode, use the exclude option to block admin, billing, and user-management methods. Accounts methods are auto-excluded.',
+  },
+  {
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+        />
+      </svg>
+    ),
+    color: 'text-yellow-400',
+    bg: 'bg-yellow-400/10 border-yellow-400/20',
+    title: 'No Meteor User Context',
+    desc: 'MCP requests don\u2019t carry a DDP session, so this.userId is null. Never rely on it for auth in methods exposed to MCP \u2014 validate permissions another way.',
+  },
+  {
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+        />
+      </svg>
+    ),
+    color: 'text-cyan-400',
+    bg: 'bg-cyan-400/10 border-cyan-400/20',
+    title: 'Validate All Inputs',
+    desc: 'AI agents may send unexpected values. Always validate and sanitize parameters inside your methods, even when using inputSchema.',
+  },
+  {
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
+        />
+      </svg>
+    ),
+    color: 'text-purple-400',
+    bg: 'bg-purple-400/10 border-purple-400/20',
+    title: 'Don\u2019t Expose Secrets',
+    desc: 'Never return sensitive data (tokens, passwords, internal IDs) from MCP tools. Treat tool responses as if they will be shown to end users.',
+  },
+];
+
+const AUTH_TABS = [
+  {
+    id: 'api-key',
+    label: 'API Key Auth',
+    code: AUTH_BASIC_CODE,
+    lang: 'javascript',
+    file: 'server/main.js',
+  },
+  {
+    id: 'opt-in',
+    label: 'Opt-In Mode',
+    code: AUTH_OPTIN_CODE,
+    lang: 'javascript',
+    file: 'server/main.js',
+  },
+  {
+    id: 'exclude',
+    label: 'Exclude Patterns',
+    code: AUTH_EXCLUDE_CODE,
+    lang: 'javascript',
+    file: 'server/main.js',
+  },
+  {
+    id: 'method-auth',
+    label: 'Method-Level Auth',
+    code: AUTH_METHOD_CODE,
+    lang: 'javascript',
+    file: 'server/methods.js',
+  },
+  {
+    id: 'validation',
+    label: 'Input Validation',
+    code: AUTH_VALIDATE_CODE,
+    lang: 'javascript',
+    file: 'server/methods.js',
+  },
+];
+
+function SecurityBestPractices() {
+  const [activeTab, setActiveTab] = useState('api-key');
+  const tab = AUTH_TABS.find((t) => t.id === activeTab);
+
+  return (
+    <section id="security" className="relative px-6 py-24">
+      <div className="mx-auto max-w-6xl">
+        <FadeInSection>
+          <div className="text-center mb-16">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6 }}
+              className="inline-block mb-6 rounded-full border border-red-500/30 bg-red-500/10 px-4 py-1.5 text-xs font-medium text-red-300 tracking-wide"
+            >
+              SECURITY
+            </motion.div>
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+              Authentication &amp; Best Practices
+            </h2>
+            <p className="text-neutral-400 text-lg max-w-2xl mx-auto">
+              MCP bridges your methods to AI agents. Here&apos;s how to keep your app secure.
+            </p>
+          </div>
+        </FadeInSection>
+
+        {/* Best Practices Cards */}
+        <StaggerChildren className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 mb-20" stagger={0.08}>
+          {SECURITY_PRACTICES.map((p) => (
+            <motion.div
+              key={p.title}
+              variants={staggerChild}
+              className="glass-card rounded-2xl p-6 group cursor-default"
+            >
+              <div
+                className={`inline-flex items-center justify-center w-10 h-10 rounded-xl border ${p.bg} ${p.color} mb-4`}
+              >
+                {p.icon}
+              </div>
+              <h3 className="text-base font-bold text-white mb-2 group-hover:text-purple-300 transition">
+                {p.title}
+              </h3>
+              <p className="text-sm leading-relaxed text-neutral-400">{p.desc}</p>
+            </motion.div>
+          ))}
+        </StaggerChildren>
+
+        {/* Code Examples */}
+        <FadeInSection>
+          <div className="text-center mb-10">
+            <h3 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+              Authentication Examples
+            </h3>
+            <p className="text-neutral-400 max-w-xl mx-auto">
+              Copy these patterns into your app. Click a tab to see different approaches.
+            </p>
+          </div>
+        </FadeInSection>
+
+        <FadeInSection delay={0.15}>
+          <div className="mx-auto max-w-3xl">
+            {/* Tabs */}
+            <div className="flex flex-wrap gap-2 mb-6">
+              {AUTH_TABS.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveTab(t.id)}
+                  className={`rounded-lg px-4 py-2 text-xs font-semibold transition ${
+                    activeTab === t.id
+                      ? 'bg-purple-600/80 text-white border border-purple-500/50'
+                      : 'text-neutral-400 border border-purple-500/10 hover:border-purple-500/30 hover:text-neutral-200'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Active Code Block */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={tab.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+              >
+                <CodeBlock code={tab.code} label={tab.file} language={tab.lang} />
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Important callout */}
+            <div className="mt-8 glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
+              <div className="flex gap-4">
+                <div className="shrink-0 mt-0.5">
+                  <div className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-yellow-400/10 border border-yellow-400/20 text-yellow-400">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white mb-1">
+                    Important: No User Session in MCP
+                  </h4>
+                  <p className="text-sm text-neutral-400 leading-relaxed">
+                    MCP requests arrive over HTTP, not DDP. This means{' '}
+                    <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">
+                      this.userId
+                    </code>{' '}
+                    is always{' '}
+                    <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">
+                      null
+                    </code>{' '}
+                    inside methods called via MCP. Use the API key for endpoint-level auth from
+                    environment variables, and implement your own permission logic inside methods
+                    for fine-grained access control.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </FadeInSection>
+      </div>
+    </section>
+  );
+}
+
 // ─── MCP Tester ─────────────────────────────────────────────────────────────────
 
 function McpTester() {
@@ -1485,6 +1893,8 @@ export function App() {
         <QuickStart />
         <div className="section-divider" />
         <ApiReference />
+        <div className="section-divider" />
+        <SecurityBestPractices />
         <div className="section-divider" />
         <McpTester />
       </main>
