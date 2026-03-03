@@ -2,6 +2,8 @@
 
 > A cosmic bridge connecting Meteor methods to AI agents through MCP
 
+https://wormhole.meteorapp.com/
+
 **Meteor Wormhole** is a Meteor 3 package that automatically exposes your `Meteor.methods` as [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) tools, allowing AI agents (Claude, GPT, etc.) to discover and call your server-side methods.
 
 ## Features
