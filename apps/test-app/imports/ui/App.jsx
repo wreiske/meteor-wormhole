@@ -561,6 +561,27 @@ function QuickStart() {
               <h3 className="text-lg font-bold text-white">Install the package</h3>
             </div>
             <CodeBlock code={INSTALL_CODE} label="Terminal" language="bash" />
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="text-xs text-neutral-600">Also available on:</span>
+              <a
+                href="https://atmospherejs.com/wreiske/meteor-wormhole"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/10 bg-purple-500/5 px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-purple-300 hover:border-purple-500/30 transition"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                Atmosphere
+              </a>
+              <a
+                href="https://packosphere.com/wreiske/meteor-wormhole"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/10 bg-purple-500/5 px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-purple-300 hover:border-purple-500/30 transition"
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 013 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L5 8.09v7.82l7 3.94 7-3.94V8.09l-7-3.94z"/></svg>
+                Packosphere
+              </a>
+            </div>
           </FadeInSection>
 
           <FadeInSection delay={0.2}>
@@ -688,6 +709,8 @@ function McpTester() {
   const [logs, setLogs] = useState([]);
   const [selectedTool, setSelectedTool] = useState(null);
   const [toolArgs, setToolArgs] = useState('{}');
+  const [formValues, setFormValues] = useState({});
+  const [showRawJson, setShowRawJson] = useState(false);
   const [callResult, setCallResult] = useState(null);
   const sessionIdRef = useRef(null);
   const logIdRef = useRef(0);
@@ -723,6 +746,8 @@ function McpTester() {
     setStatus('connecting');
     setTools([]);
     setSelectedTool(null);
+    setFormValues({});
+    setShowRawJson(false);
     setCallResult(null);
     sessionIdRef.current = null;
     addLog('info', `Connecting to ${endpoint}...`);
@@ -774,9 +799,38 @@ function McpTester() {
     setStatus('disconnected');
     setTools([]);
     setSelectedTool(null);
+    setFormValues({});
+    setShowRawJson(false);
     setCallResult(null);
     addLog('info', 'Disconnected');
   }, [endpoint, apiKey, addLog]);
+
+  const buildArgsFromForm = useCallback(() => {
+    if (!selectedTool?.inputSchema?.properties) return {};
+    const args = {};
+    for (const [key, schema] of Object.entries(selectedTool.inputSchema.properties)) {
+      const val = formValues[key];
+      if (val === undefined || val === '') continue;
+      if (schema.type === 'number' || schema.type === 'integer') {
+        const num = Number(val);
+        if (!isNaN(num)) args[key] = num;
+      } else if (schema.type === 'boolean') {
+        args[key] = val === true || val === 'true';
+      } else if (schema.type === 'object' || schema.type === 'array') {
+        try { args[key] = JSON.parse(val); } catch { args[key] = val; }
+      } else {
+        args[key] = val;
+      }
+    }
+    return args;
+  }, [selectedTool, formValues]);
+
+  const handleFormValueChange = useCallback((key, value) => {
+    setFormValues(prev => {
+      const next = { ...prev, [key]: value };
+      return next;
+    });
+  }, []);
 
   const handleCallTool = useCallback(async () => {
     if (!selectedTool) return;
@@ -785,11 +839,15 @@ function McpTester() {
 
     try {
       let parsedArgs;
-      try {
-        parsedArgs = JSON.parse(toolArgs);
-      } catch {
-        addLog('error', 'Invalid JSON in arguments');
-        return;
+      if (showRawJson) {
+        try {
+          parsedArgs = JSON.parse(toolArgs);
+        } catch {
+          addLog('error', 'Invalid JSON in arguments');
+          return;
+        }
+      } else {
+        parsedArgs = buildArgsFromForm();
       }
 
       const result = await makeRequest('POST', endpoint, {
@@ -805,7 +863,7 @@ function McpTester() {
       addLog('error', `Tool call failed: ${err.message}`);
       setCallResult({ error: err.message });
     }
-  }, [selectedTool, toolArgs, endpoint, addLog, makeRequest]);
+  }, [selectedTool, toolArgs, showRawJson, buildArgsFromForm, endpoint, addLog, makeRequest]);
 
   const resultHighlighted = useMemo(() => {
     if (!callResult) return '';
@@ -909,6 +967,8 @@ function McpTester() {
                           onClick={() => {
                             setSelectedTool(tool);
                             setToolArgs('{}');
+                            setFormValues({});
+                            setShowRawJson(false);
                             setCallResult(null);
                           }}
                           className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition ${
@@ -951,29 +1011,112 @@ function McpTester() {
                     )}
 
                     {selectedTool.inputSchema?.properties && (
-                      <div className="mb-4 rounded-xl bg-purple-500/5 border border-purple-500/10 p-4">
-                        <span className="mb-2 block text-xs font-bold text-neutral-500 uppercase tracking-wider">Parameters</span>
-                        {Object.entries(selectedTool.inputSchema.properties).map(([key, val]) => (
-                          <div key={key} className="text-xs text-neutral-400 py-0.5">
-                            <code className="text-purple-400 font-mono">{key}</code>
-                            <span className="text-neutral-600">: {val.type}</span>
-                            {val.description && <span className="text-neutral-500"> — {val.description}</span>}
-                            {selectedTool.inputSchema.required?.includes(key) && (
-                              <span className="ml-1 text-red-400 text-[10px] font-bold">required</span>
-                            )}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Parameters</span>
+                          <button
+                            onClick={() => {
+                              if (!showRawJson) {
+                                setToolArgs(JSON.stringify(buildArgsFromForm(), null, 2));
+                              }
+                              setShowRawJson(!showRawJson);
+                            }}
+                            className="text-[10px] font-semibold text-neutral-500 hover:text-purple-400 transition uppercase tracking-wider flex items-center gap-1"
+                          >
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              {showRawJson
+                                ? <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                : <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                              }
+                            </svg>
+                            {showRawJson ? 'Form' : 'JSON'}
+                          </button>
+                        </div>
+
+                        {showRawJson ? (
+                          <textarea
+                            value={toolArgs}
+                            onChange={(e) => setToolArgs(e.target.value)}
+                            rows={Math.max(4, Object.keys(selectedTool.inputSchema.properties).length * 2 + 2)}
+                            className="mb-0 w-full rounded-xl border border-purple-500/10 bg-[var(--space-dark)] px-4 py-3 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
+                            placeholder='{"key": "value"}'
+                          />
+                        ) : (
+                          <div className="space-y-3">
+                            {Object.entries(selectedTool.inputSchema.properties).map(([key, schema]) => {
+                              const isRequired = selectedTool.inputSchema.required?.includes(key);
+                              return (
+                                <div key={key} className="rounded-xl bg-purple-500/5 border border-purple-500/10 p-3">
+                                  <label className="mb-1.5 flex items-center gap-1.5 text-xs">
+                                    <code className="text-purple-400 font-mono font-semibold">{key}</code>
+                                    <span className="text-neutral-600">{schema.type}</span>
+                                    {isRequired && (
+                                      <span className="text-red-400 text-[10px] font-bold">required</span>
+                                    )}
+                                  </label>
+                                  {schema.description && (
+                                    <p className="mb-2 text-[11px] text-neutral-500">{schema.description}</p>
+                                  )}
+                                  {schema.type === 'boolean' ? (
+                                    <button
+                                      onClick={() => handleFormValueChange(key, !formValues[key])}
+                                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                                        formValues[key] ? 'bg-purple-600' : 'bg-neutral-700'
+                                      }`}
+                                    >
+                                      <span className={`inline-block h-4 w-4 rounded-full bg-white transition transform ${
+                                        formValues[key] ? 'translate-x-6' : 'translate-x-1'
+                                      }`} />
+                                    </button>
+                                  ) : schema.enum ? (
+                                    <select
+                                      value={formValues[key] || ''}
+                                      onChange={(e) => handleFormValueChange(key, e.target.value)}
+                                      className="w-full rounded-lg border border-purple-500/10 bg-[var(--space-dark)] px-3 py-2 text-sm text-neutral-200 focus:border-purple-500/40 focus:outline-none transition"
+                                    >
+                                      <option value="">Select...</option>
+                                      {schema.enum.map((opt) => (
+                                        <option key={opt} value={opt}>{String(opt)}</option>
+                                      ))}
+                                    </select>
+                                  ) : schema.type === 'object' || schema.type === 'array' ? (
+                                    <textarea
+                                      value={formValues[key] || ''}
+                                      onChange={(e) => handleFormValueChange(key, e.target.value)}
+                                      rows={3}
+                                      className="w-full rounded-lg border border-purple-500/10 bg-[var(--space-dark)] px-3 py-2 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
+                                      placeholder={schema.type === 'array' ? '[...]' : '{...}'}
+                                    />
+                                  ) : (
+                                    <input
+                                      type={schema.type === 'number' || schema.type === 'integer' ? 'number' : 'text'}
+                                      value={formValues[key] ?? ''}
+                                      onChange={(e) => handleFormValueChange(key, e.target.value)}
+                                      className="w-full rounded-lg border border-purple-500/10 bg-[var(--space-dark)] px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
+                                      placeholder={schema.type === 'number' || schema.type === 'integer' ? '0' : `Enter ${key}...`}
+                                      step={schema.type === 'integer' ? '1' : 'any'}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
-                        ))}
+                        )}
                       </div>
                     )}
 
-                    <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">Arguments (JSON)</label>
-                    <textarea
-                      value={toolArgs}
-                      onChange={(e) => setToolArgs(e.target.value)}
-                      rows={4}
-                      className="mb-4 w-full rounded-xl border border-purple-500/10 bg-[var(--space-dark)] px-4 py-3 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
-                      placeholder='{"key": "value"}'
-                    />
+                    {!selectedTool.inputSchema?.properties && (
+                      <div className="mb-4">
+                        <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">Arguments (JSON)</label>
+                        <textarea
+                          value={toolArgs}
+                          onChange={(e) => setToolArgs(e.target.value)}
+                          rows={4}
+                          className="w-full rounded-xl border border-purple-500/10 bg-[var(--space-dark)] px-4 py-3 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
+                          placeholder='{"key": "value"}'
+                        />
+                      </div>
+                    )}
 
                     <motion.button
                       onClick={handleCallTool}
