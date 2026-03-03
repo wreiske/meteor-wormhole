@@ -48,12 +48,16 @@ Wormhole.expose('math.add', {
 
 // Demonstrates string enum-like parameters
 Wormhole.expose('string.transform', {
-  description: 'Transform a string using the specified operation (uppercase, lowercase, reverse, trim, base64)',
+  description:
+    'Transform a string using the specified operation (uppercase, lowercase, reverse, trim, base64)',
   inputSchema: {
     type: 'object',
     properties: {
       text: { type: 'string', description: 'The text to transform' },
-      operation: { type: 'string', description: 'Operation: uppercase, lowercase, reverse, trim, or base64' },
+      operation: {
+        type: 'string',
+        description: 'Operation: uppercase, lowercase, reverse, trim, or base64',
+      },
     },
     required: ['text', 'operation'],
   },
@@ -84,7 +88,8 @@ Wormhole.expose('user.register', {
 
 // Demonstrates array and boolean types in schemas
 Wormhole.expose('data.filter', {
-  description: 'Filter an array of numbers — optionally keeping only values above a threshold and sorting',
+  description:
+    'Filter an array of numbers — optionally keeping only values above a threshold and sorting',
   inputSchema: {
     type: 'object',
     properties: {
@@ -94,7 +99,10 @@ Wormhole.expose('data.filter', {
         description: 'Array of numbers to filter',
       },
       greaterThan: { type: 'number', description: 'Keep only values greater than this (optional)' },
-      ascending: { type: 'boolean', description: 'Sort results in ascending order (default false)' },
+      ascending: {
+        type: 'boolean',
+        description: 'Sort results in ascending order (default false)',
+      },
     },
     required: ['items'],
   },
@@ -107,11 +115,15 @@ Wormhole.expose('system.status', {
 
 // Demonstrates Meteor.Error propagation through the MCP bridge
 Wormhole.expose('error.demo', {
-  description: 'Throw a Meteor.Error to demonstrate error propagation (codes: not-found, unauthorized, validation-error)',
+  description:
+    'Throw a Meteor.Error to demonstrate error propagation (codes: not-found, unauthorized, validation-error)',
   inputSchema: {
     type: 'object',
     properties: {
-      code: { type: 'string', description: 'Error code to throw: not-found, unauthorized, or validation-error' },
+      code: {
+        type: 'string',
+        description: 'Error code to throw: not-found, unauthorized, or validation-error',
+      },
     },
     required: ['code'],
   },
@@ -155,14 +167,14 @@ Meteor.methods({
   },
 
   'todos.complete'(id) {
-    const todo = todos.find(t => t.id === id);
+    const todo = todos.find((t) => t.id === id);
     if (!todo) throw new Meteor.Error('not-found', `Todo ${id} not found`);
     todo.done = true;
     return todo;
   },
 
   'todos.remove'(id) {
-    const idx = todos.findIndex(t => t.id === id);
+    const idx = todos.findIndex((t) => t.id === id);
     if (idx === -1) throw new Meteor.Error('not-found', `Todo ${id} not found`);
     return todos.splice(idx, 1)[0];
   },
@@ -173,7 +185,7 @@ Meteor.methods({
     return { result: a + b };
   },
 
-  'echo'(...args) {
+  echo(...args) {
     return { echo: args };
   },
 
@@ -189,7 +201,10 @@ Meteor.methods({
     };
     const fn = ops[operation];
     if (!fn) {
-      throw new Meteor.Error('invalid-operation', `Unknown operation: ${operation}. Use: ${Object.keys(ops).join(', ')}`);
+      throw new Meteor.Error(
+        'invalid-operation',
+        `Unknown operation: ${operation}. Use: ${Object.keys(ops).join(', ')}`,
+      );
     }
     return { result: fn() };
   },
@@ -213,7 +228,7 @@ Meteor.methods({
   'data.filter'({ items, greaterThan, ascending }) {
     let result = [...items];
     if (typeof greaterThan === 'number') {
-      result = result.filter(n => n > greaterThan);
+      result = result.filter((n) => n > greaterThan);
     }
     if (ascending) {
       result.sort((a, b) => a - b);
@@ -239,12 +254,21 @@ Meteor.methods({
   'error.demo'({ code }) {
     const errors = {
       'not-found': new Meteor.Error('not-found', 'The requested resource was not found'),
-      'unauthorized': new Meteor.Error('unauthorized', 'You are not authorized to perform this action'),
-      'validation-error': new Meteor.Error('validation-error', 'The provided data failed validation'),
+      unauthorized: new Meteor.Error(
+        'unauthorized',
+        'You are not authorized to perform this action',
+      ),
+      'validation-error': new Meteor.Error(
+        'validation-error',
+        'The provided data failed validation',
+      ),
     };
     const err = errors[code];
     if (!err) {
-      throw new Meteor.Error('invalid-code', `Unknown error code: ${code}. Use: ${Object.keys(errors).join(', ')}`);
+      throw new Meteor.Error(
+        'invalid-code',
+        `Unknown error code: ${code}. Use: ${Object.keys(errors).join(', ')}`,
+      );
     }
     throw err;
   },
@@ -261,7 +285,10 @@ Meteor.methods({
     };
     const gen = generators[type];
     if (!gen) {
-      throw new Meteor.Error('invalid-type', `Unknown type: ${type}. Use: ${Object.keys(generators).join(', ')}`);
+      throw new Meteor.Error(
+        'invalid-type',
+        `Unknown type: ${type}. Use: ${Object.keys(generators).join(', ')}`,
+      );
     }
     const values = Array.from({ length: n }, gen);
     return n === 1 ? { value: values[0] } : { values };
@@ -282,19 +309,19 @@ Meteor.methods({
 
 Meteor.startup(() => {
   const toolNames = Wormhole.registry.names();
-  console.log('');
-  console.log('==============================================');
-  console.log(' Meteor Wormhole Test App');
-  console.log(' MCP endpoint: http://localhost:3000/mcp');
-  console.log('==============================================');
-  console.log('');
-  console.log(`Registered MCP tools (${toolNames.length}):`);
+  console.info('');
+  console.info('==============================================');
+  console.info(' Meteor Wormhole Test App');
+  console.info(' MCP endpoint: http://localhost:3000/mcp');
+  console.info('==============================================');
+  console.info('');
+  console.info(`Registered MCP tools (${toolNames.length}):`);
   for (const name of toolNames) {
-    console.log(`  - ${name}`);
+    console.info(`  - ${name}`);
   }
-  console.log('');
-  console.log('Excluded (should NOT appear above):');
-  console.log('  - _internal.secret  (auto-excluded: _ prefix)');
-  console.log('  - admin.dangerousReset  (excluded via exclude option)');
-  console.log('');
+  console.info('');
+  console.info('Excluded (should NOT appear above):');
+  console.info('  - _internal.secret  (auto-excluded: _ prefix)');
+  console.info('  - admin.dangerousReset  (excluded via exclude option)');
+  console.info('');
 });

@@ -7,8 +7,8 @@ let _excludePatterns = [];
 
 // Default patterns: exclude internal/private/accounts methods
 const DEFAULT_EXCLUDE_PATTERNS = [
-  /^\//,                    // DDP internal methods (e.g., /users/...)
-  /^_/,                     // Private convention
+  /^\//, // DDP internal methods (e.g., /users/...)
+  /^_/, // Private convention
   /^login$/,
   /^logout$/,
   /^getNewToken$/,

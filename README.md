@@ -63,7 +63,7 @@ Meteor.methods({
   },
   'todos.list'() {
     return Todos.find().fetchAsync();
-  }
+  },
 });
 ```
 
@@ -78,10 +78,10 @@ Wormhole.expose('todos.add', {
   inputSchema: {
     type: 'object',
     properties: {
-      title: { type: 'string', description: 'The todo title' }
+      title: { type: 'string', description: 'The todo title' },
     },
-    required: ['title']
-  }
+    required: ['title'],
+  },
 });
 ```
 
@@ -95,22 +95,22 @@ Point your MCP client at `http://localhost:3000/mcp` — the agent can now disco
 
 Initialize the MCP bridge.
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `mode` | `'all' \| 'opt-in'` | `'all'` | Exposure mode |
-| `path` | `string` | `'/mcp'` | HTTP endpoint path |
-| `name` | `string` | `'meteor-wormhole'` | MCP server name |
-| `version` | `string` | `'1.0.0'` | MCP server version |
-| `apiKey` | `string \| null` | `null` | Bearer token for auth |
-| `exclude` | `(string \| RegExp)[]` | `[]` | Methods to exclude (all-in mode) |
+| Option    | Type                   | Default             | Description                      |
+| --------- | ---------------------- | ------------------- | -------------------------------- |
+| `mode`    | `'all' \| 'opt-in'`    | `'all'`             | Exposure mode                    |
+| `path`    | `string`               | `'/mcp'`            | HTTP endpoint path               |
+| `name`    | `string`               | `'meteor-wormhole'` | MCP server name                  |
+| `version` | `string`               | `'1.0.0'`           | MCP server version               |
+| `apiKey`  | `string \| null`       | `null`              | Bearer token for auth            |
+| `exclude` | `(string \| RegExp)[]` | `[]`                | Methods to exclude (all-in mode) |
 
 ### `Wormhole.expose(methodName, options)`
 
 Explicitly expose a method as an MCP tool.
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `description` | `string` | Human-readable tool description |
+| Option        | Type     | Description                       |
+| ------------- | -------- | --------------------------------- |
+| `description` | `string` | Human-readable tool description   |
 | `inputSchema` | `object` | JSON Schema for method parameters |
 
 ### `Wormhole.unexpose(methodName)`

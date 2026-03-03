@@ -5,7 +5,9 @@ import { randomUUID } from 'crypto';
 // Use explicit dist paths — Meteor's module resolver doesn't support the
 // wildcard subpath exports pattern ("./*") used by the SDK's package.json.
 const { McpServer } = Npm.require('@modelcontextprotocol/sdk/dist/cjs/server/mcp.js');
-const { StreamableHTTPServerTransport } = Npm.require('@modelcontextprotocol/sdk/dist/cjs/server/streamableHttp.js');
+const { StreamableHTTPServerTransport } = Npm.require(
+  '@modelcontextprotocol/sdk/dist/cjs/server/streamableHttp.js',
+);
 const { z } = Npm.require('zod');
 
 /**
@@ -33,10 +35,18 @@ export function jsonSchemaToZod(schema) {
     for (const [key, prop] of Object.entries(schema.properties)) {
       let field;
       switch (prop.type) {
-        case 'string': field = z.string(); break;
-        case 'number': field = z.number(); break;
-        case 'integer': field = z.number().int(); break;
-        case 'boolean': field = z.boolean(); break;
+        case 'string':
+          field = z.string();
+          break;
+        case 'number':
+          field = z.number();
+          break;
+        case 'integer':
+          field = z.number().int();
+          break;
+        case 'boolean':
+          field = z.boolean();
+          break;
         case 'array':
           field = z.array(prop.items ? jsonSchemaFieldToZod(prop.items) : z.any());
           break;
@@ -60,11 +70,16 @@ export function jsonSchemaToZod(schema) {
 
 function jsonSchemaFieldToZod(prop) {
   switch (prop.type) {
-    case 'string': return z.string();
-    case 'number': return z.number();
-    case 'integer': return z.number().int();
-    case 'boolean': return z.boolean();
-    default: return z.any();
+    case 'string':
+      return z.string();
+    case 'number':
+      return z.number();
+    case 'integer':
+      return z.number().int();
+    case 'boolean':
+      return z.boolean();
+    default:
+      return z.any();
   }
 }
 
@@ -83,11 +98,13 @@ export function genericInputSchema() {
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', chunk => { data += chunk.toString(); });
+    req.on('data', (chunk) => {
+      data += chunk.toString();
+    });
     req.on('end', () => {
       try {
         resolve(data ? JSON.parse(data) : undefined);
-      } catch (e) {
+      } catch (_e) {
         reject(new Error('Invalid JSON body'));
       }
     });
@@ -113,7 +130,7 @@ export class McpBridge {
     WebApp.connectHandlers.use(path, async (req, res) => {
       try {
         await this._handleRequest(req, res);
-      } catch (err) {
+      } catch (_err) {
         if (!res.headersSent) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Internal server error' }));
@@ -125,8 +142,12 @@ export class McpBridge {
   }
 
   stop() {
-    for (const [id, entry] of this._transports) {
-      try { entry.transport.close?.(); } catch (_) {}
+    for (const [_id, entry] of this._transports) {
+      try {
+        entry.transport.close?.();
+      } catch (_e) {
+        /* cleanup best-effort */
+      }
     }
     this._transports.clear();
     this._started = false;
@@ -138,7 +159,9 @@ export class McpBridge {
       const authHeader = req.headers['authorization'] || '';
       if (authHeader !== `Bearer ${this._options.apiKey}`) {
         res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32600, message: 'Unauthorized' } }));
+        res.end(
+          JSON.stringify({ jsonrpc: '2.0', error: { code: -32600, message: 'Unauthorized' } }),
+        );
         return;
       }
     }
@@ -169,7 +192,9 @@ export class McpBridge {
       } else {
         // Unknown session
         res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32600, message: 'Invalid session' } }));
+        res.end(
+          JSON.stringify({ jsonrpc: '2.0', error: { code: -32600, message: 'Invalid session' } }),
+        );
       }
     } else if (req.method === 'GET') {
       if (sessionId && this._transports.has(sessionId)) {
@@ -197,7 +222,7 @@ export class McpBridge {
   _createSession() {
     const server = new McpServer(
       { name: this._options.name, version: this._options.version },
-      { capabilities: { tools: { listChanged: true } } }
+      { capabilities: { tools: { listChanged: true } } },
     );
 
     this._registerToolsOnServer(server);
@@ -247,15 +272,16 @@ export class McpBridge {
               content: [{ type: 'text', text: JSON.stringify(result ?? null) }],
             };
           } catch (error) {
-            const message = error instanceof Meteor.Error
-              ? `${error.error}: ${error.reason || error.message}`
-              : error.message || 'Unknown error';
+            const message =
+              error instanceof Meteor.Error
+                ? `${error.error}: ${error.reason || error.message}`
+                : error.message || 'Unknown error';
             return {
               content: [{ type: 'text', text: message }],
               isError: true,
             };
           }
-        }
+        },
       );
     }
   }

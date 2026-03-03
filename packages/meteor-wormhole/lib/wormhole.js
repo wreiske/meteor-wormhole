@@ -55,7 +55,9 @@ class WormholeManager {
     this._bridge.start();
 
     this._initialized = true;
-    console.log(`[Wormhole] MCP server initialized at ${this._options.path} (mode: ${this._options.mode})`);
+    console.info(
+      `[Wormhole] MCP server initialized at ${this._options.path} (mode: ${this._options.mode})`,
+    );
   }
 
   /**

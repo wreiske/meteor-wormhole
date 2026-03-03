@@ -25,8 +25,8 @@ Wormhole.expose('myMethod', {
   inputSchema: {
     type: 'object',
     properties: { name: { type: 'string' } },
-    required: ['name']
-  }
+    required: ['name'],
+  },
 });
 ```
 

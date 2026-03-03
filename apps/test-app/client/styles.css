@@ -12,7 +12,11 @@
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family:
+    'Inter',
+    system-ui,
+    -apple-system,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: var(--space-deep);
@@ -20,7 +24,9 @@ body {
   overflow-x: hidden;
 }
 
-code, pre, .font-mono {
+code,
+pre,
+.font-mono {
   font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
 }
 
@@ -40,30 +46,34 @@ code, pre, .font-mono {
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(1px 1px at 30% 60%, rgba(255,255,255,0.4) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 50% 10%, rgba(255,255,255,0.7) 0%, transparent 100%),
-    radial-gradient(1px 1px at 70% 80%, rgba(255,255,255,0.5) 0%, transparent 100%),
-    radial-gradient(1px 1px at 90% 30%, rgba(255,255,255,0.4) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 15% 85%, rgba(255,255,255,0.6) 0%, transparent 100%),
-    radial-gradient(1px 1px at 45% 45%, rgba(255,255,255,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 85% 55%, rgba(255,255,255,0.5) 0%, transparent 100%);
+    radial-gradient(1px 1px at 10% 20%, rgba(255, 255, 255, 0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 60%, rgba(255, 255, 255, 0.4) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 50% 10%, rgba(255, 255, 255, 0.7) 0%, transparent 100%),
+    radial-gradient(1px 1px at 70% 80%, rgba(255, 255, 255, 0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 90% 30%, rgba(255, 255, 255, 0.4) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 15% 85%, rgba(255, 255, 255, 0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 45% 45%, rgba(255, 255, 255, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 85% 55%, rgba(255, 255, 255, 0.5) 0%, transparent 100%);
   animation: twinkle 8s ease-in-out infinite alternate;
 }
 
 .starfield::after {
   background-image:
-    radial-gradient(1px 1px at 25% 35%, rgba(139,92,246,0.5) 0%, transparent 100%),
-    radial-gradient(1px 1px at 55% 75%, rgba(34,211,238,0.4) 0%, transparent 100%),
-    radial-gradient(1.5px 1.5px at 75% 15%, rgba(139,92,246,0.6) 0%, transparent 100%),
-    radial-gradient(1px 1px at 5% 95%, rgba(34,211,238,0.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 65% 25%, rgba(139,92,246,0.4) 0%, transparent 100%);
+    radial-gradient(1px 1px at 25% 35%, rgba(139, 92, 246, 0.5) 0%, transparent 100%),
+    radial-gradient(1px 1px at 55% 75%, rgba(34, 211, 238, 0.4) 0%, transparent 100%),
+    radial-gradient(1.5px 1.5px at 75% 15%, rgba(139, 92, 246, 0.6) 0%, transparent 100%),
+    radial-gradient(1px 1px at 5% 95%, rgba(34, 211, 238, 0.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 65% 25%, rgba(139, 92, 246, 0.4) 0%, transparent 100%);
   animation: twinkle 12s ease-in-out infinite alternate-reverse;
 }
 
 @keyframes twinkle {
-  0% { opacity: 0.4; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 /* ── Wormhole Portal ───────────────────────────────────────────────────────── */
@@ -121,19 +131,35 @@ code, pre, .font-mono {
   position: absolute;
   inset: 80px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(139,92,246,0.4) 0%, rgba(109,40,217,0.2) 50%, transparent 70%);
+  background: radial-gradient(
+    circle,
+    rgba(139, 92, 246, 0.4) 0%,
+    rgba(109, 40, 217, 0.2) 50%,
+    transparent 70%
+  );
   animation: wormhole-pulse 3s ease-in-out infinite;
   box-shadow: 0 0 60px rgba(139, 92, 246, 0.4);
 }
 
 @keyframes wormhole-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes wormhole-pulse {
-  0%, 100% { opacity: 0.6; transform: scale(0.95); }
-  50% { opacity: 1; transform: scale(1.05); }
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
 }
 
 /* ── Nebula Glow ───────────────────────────────────────────────────────────── */
@@ -160,7 +186,7 @@ code, pre, .font-mono {
 
 .section-divider {
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, rgba(139,92,246,0.3) 50%, transparent 100%);
+  background: linear-gradient(90deg, transparent 0%, rgba(139, 92, 246, 0.3) 50%, transparent 100%);
   margin: 0 auto;
   max-width: 600px;
 }
@@ -224,24 +250,61 @@ code, pre, .font-mono {
   color: #abb2bf;
 }
 
-.hljs-keyword { color: #c678dd; }
-.hljs-string { color: #98c379; }
-.hljs-comment { color: #5c6370; font-style: italic; }
-.hljs-function { color: #61afef; }
-.hljs-number { color: #d19a66; }
-.hljs-title { color: #61afef; }
-.hljs-built_in { color: #e5c07b; }
-.hljs-params { color: #abb2bf; }
-.hljs-attr { color: #d19a66; }
-.hljs-type { color: #e5c07b; }
-.hljs-literal { color: #d19a66; }
-.hljs-property { color: #e06c75; }
-.hljs-variable { color: #e06c75; }
-.hljs-meta { color: #61afef; }
-.hljs-selector-tag { color: #e06c75; }
-.hljs-selector-class { color: #d19a66; }
-.hljs-selector-id { color: #61afef; }
-.hljs-attribute { color: #d19a66; }
+.hljs-keyword {
+  color: #c678dd;
+}
+.hljs-string {
+  color: #98c379;
+}
+.hljs-comment {
+  color: #5c6370;
+  font-style: italic;
+}
+.hljs-function {
+  color: #61afef;
+}
+.hljs-number {
+  color: #d19a66;
+}
+.hljs-title {
+  color: #61afef;
+}
+.hljs-built_in {
+  color: #e5c07b;
+}
+.hljs-params {
+  color: #abb2bf;
+}
+.hljs-attr {
+  color: #d19a66;
+}
+.hljs-type {
+  color: #e5c07b;
+}
+.hljs-literal {
+  color: #d19a66;
+}
+.hljs-property {
+  color: #e06c75;
+}
+.hljs-variable {
+  color: #e06c75;
+}
+.hljs-meta {
+  color: #61afef;
+}
+.hljs-selector-tag {
+  color: #e06c75;
+}
+.hljs-selector-class {
+  color: #d19a66;
+}
+.hljs-selector-id {
+  color: #61afef;
+}
+.hljs-attribute {
+  color: #d19a66;
+}
 
 /* ── Timeline ──────────────────────────────────────────────────────────────── */
 
@@ -267,8 +330,13 @@ code, pre, .font-mono {
 }
 
 @keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 /* ── Button Glow ───────────────────────────────────────────────────────────── */
@@ -282,7 +350,12 @@ code, pre, .font-mono {
   content: '';
   position: absolute;
   inset: -2px;
-  background: linear-gradient(135deg, var(--wormhole-glow), var(--wormhole-cyan), var(--wormhole-glow));
+  background: linear-gradient(
+    135deg,
+    var(--wormhole-glow),
+    var(--wormhole-cyan),
+    var(--wormhole-glow)
+  );
   border-radius: inherit;
   z-index: -1;
   opacity: 0;

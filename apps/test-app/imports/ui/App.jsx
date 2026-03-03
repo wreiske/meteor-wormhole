@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'motion/react';
 import hljs from 'highlight.js/lib/core';
 import javascript from 'highlight.js/lib/languages/javascript';
@@ -55,22 +55,22 @@ const staggerChild = {
 
 // ─── Floating Particles ─────────────────────────────────────────────────────────
 
-function FloatingParticles() {
-  const particles = useMemo(() =>
-    Array.from({ length: 30 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 100,
-      size: Math.random() * 3 + 1,
-      duration: Math.random() * 20 + 15,
-      delay: Math.random() * 10,
-      opacity: Math.random() * 0.5 + 0.1,
-      color: Math.random() > 0.6 ? 'rgba(139,92,246,' : 'rgba(34,211,238,',
-    })), []);
+// Pre-generate particle data outside the component to avoid impure render calls
+const PARTICLES = Array.from({ length: 30 }, (_, i) => ({
+  id: i,
+  x: Math.random() * 100,
+  y: Math.random() * 100,
+  size: Math.random() * 3 + 1,
+  duration: Math.random() * 20 + 15,
+  delay: Math.random() * 10,
+  opacity: Math.random() * 0.5 + 0.1,
+  color: Math.random() > 0.6 ? 'rgba(139,92,246,' : 'rgba(34,211,238,',
+}));
 
+function FloatingParticles() {
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-      {particles.map((p) => (
+      {PARTICLES.map((p) => (
         <motion.div
           key={p.id}
           className="absolute rounded-full"
@@ -84,7 +84,7 @@ function FloatingParticles() {
           }}
           animate={{
             y: [0, -30, 0],
-            x: [0, Math.random() * 20 - 10, 0],
+            x: [0, p.size * 7 - 10, 0],
             opacity: [p.opacity, p.opacity * 1.5, p.opacity],
           }}
           transition={{
@@ -139,10 +139,18 @@ function Navbar() {
           <span className="text-sm font-bold text-white tracking-wide">WORMHOLE</span>
         </a>
         <div className="hidden sm:flex items-center gap-6 text-sm">
-          <a href="#features" className="text-neutral-400 hover:text-white transition">Features</a>
-          <a href="#how-it-works" className="text-neutral-400 hover:text-white transition">How It Works</a>
-          <a href="#quickstart" className="text-neutral-400 hover:text-white transition">Quick Start</a>
-          <a href="#tester" className="text-neutral-400 hover:text-white transition">Tester</a>
+          <a href="#features" className="text-neutral-400 hover:text-white transition">
+            Features
+          </a>
+          <a href="#how-it-works" className="text-neutral-400 hover:text-white transition">
+            How It Works
+          </a>
+          <a href="#quickstart" className="text-neutral-400 hover:text-white transition">
+            Quick Start
+          </a>
+          <a href="#tester" className="text-neutral-400 hover:text-white transition">
+            Tester
+          </a>
           <a
             href="https://github.com/wreiske/meteor-wormhole"
             target="_blank"
@@ -203,7 +211,10 @@ function Hero() {
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
 
   return (
-    <section ref={ref} className="relative overflow-hidden px-6 pt-32 pb-24 min-h-[90vh] flex items-center">
+    <section
+      ref={ref}
+      className="relative overflow-hidden px-6 pt-32 pb-24 min-h-[90vh] flex items-center"
+    >
       {/* Nebula Glows */}
       <div className="nebula-glow nebula-glow-purple absolute -top-40 -left-40" />
       <div className="nebula-glow nebula-glow-cyan absolute -bottom-40 -right-40" />
@@ -254,8 +265,8 @@ function Hero() {
           </p>
 
           <p className="mb-10 text-neutral-500 max-w-xl mx-auto">
-            Expose your server methods as MCP tools so Claude, GPT, and other AI agents
-            can discover and invoke them — zero config required.
+            Expose your server methods as MCP tools so Claude, GPT, and other AI agents can discover
+            and invoke them — zero config required.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4">
@@ -268,7 +279,9 @@ function Hero() {
               whileTap={{ scale: 0.98 }}
             >
               <span className="relative z-10 flex items-center justify-center gap-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                </svg>
                 View on GitHub
               </span>
             </motion.a>
@@ -292,7 +305,13 @@ function Hero() {
 const FEATURES = [
   {
     icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
         <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
       </svg>
     ),
@@ -303,8 +322,18 @@ const FEATURES = [
   },
   {
     icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+        />
       </svg>
     ),
     color: 'text-green-400',
@@ -314,8 +343,18 @@ const FEATURES = [
   },
   {
     icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+        />
       </svg>
     ),
     color: 'text-red-400',
@@ -325,8 +364,18 @@ const FEATURES = [
   },
   {
     icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0" />
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"
+        />
       </svg>
     ),
     color: 'text-blue-400',
@@ -336,8 +385,18 @@ const FEATURES = [
   },
   {
     icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
+        />
       </svg>
     ),
     color: 'text-orange-400',
@@ -347,8 +406,18 @@ const FEATURES = [
   },
   {
     icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
       </svg>
     ),
     color: 'text-purple-400',
@@ -364,9 +433,7 @@ function Features() {
       <div className="mx-auto max-w-6xl">
         <FadeInSection>
           <div className="text-center mb-16">
-            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
-              Everything You Need
-            </h2>
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">Everything You Need</h2>
             <p className="text-neutral-400 text-lg max-w-2xl mx-auto">
               Wormhole handles the heavy lifting so you can focus on building your Meteor app.
             </p>
@@ -380,7 +447,9 @@ function Features() {
               variants={staggerChild}
               className="glass-card rounded-2xl p-6 group cursor-default"
             >
-              <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl border ${f.bg} ${f.color} mb-4`}>
+              <div
+                className={`inline-flex items-center justify-center w-12 h-12 rounded-xl border ${f.bg} ${f.color} mb-4`}
+              >
                 {f.icon}
               </div>
               <h3 className="text-lg font-bold text-white mb-2 group-hover:text-purple-300 transition">
@@ -402,17 +471,37 @@ const STEPS = [
     title: 'Registration',
     desc: 'In all-in mode, the package hooks Meteor.methods to intercept every registration. In opt-in mode, call Wormhole.expose() manually.',
     icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+        />
       </svg>
     ),
   },
   {
     title: 'MCP Server',
-    desc: 'A Streamable HTTP MCP server is mounted at the configured path (default /mcp) on Meteor\'s WebApp.',
+    desc: "A Streamable HTTP MCP server is mounted at the configured path (default /mcp) on Meteor's WebApp.",
     icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"
+        />
       </svg>
     ),
   },
@@ -420,8 +509,18 @@ const STEPS = [
     title: 'Tool Mapping',
     desc: 'Each exposed Meteor method becomes an MCP tool. Names are sanitized (e.g. todos.add → todos_add) for protocol compliance.',
     icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+        />
       </svg>
     ),
   },
@@ -429,8 +528,18 @@ const STEPS = [
     title: 'Invocation',
     desc: 'When an AI agent calls a tool, the bridge invokes the Meteor method via Meteor.callAsync() and returns the result.',
     icon: (
-      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+        />
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
@@ -443,9 +552,7 @@ function HowItWorks() {
       <div className="mx-auto max-w-3xl">
         <FadeInSection>
           <div className="text-center mb-16">
-            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
-              How It Works
-            </h2>
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">How It Works</h2>
             <p className="text-neutral-400 text-lg max-w-xl mx-auto">
               From registration to invocation in four seamless steps.
             </p>
@@ -462,7 +569,9 @@ function HowItWorks() {
                 </div>
                 <div className="glass-card rounded-xl p-5 flex-1" style={{ cursor: 'default' }}>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-[10px] font-bold tracking-widest text-purple-400/60 uppercase">Step {i + 1}</span>
+                    <span className="text-[10px] font-bold tracking-widest text-purple-400/60 uppercase">
+                      Step {i + 1}
+                    </span>
                   </div>
                   <h3 className="font-bold text-white text-lg mb-1">{s.title}</h3>
                   <p className="text-sm text-neutral-400 leading-relaxed">{s.desc}</p>
@@ -500,10 +609,7 @@ Wormhole.expose('todos.add', {
 
 function CodeBlock({ code, label, language = 'javascript' }) {
   const [copied, setCopied] = useState(false);
-  const highlighted = useMemo(
-    () => hljs.highlight(code, { language }).value,
-    [code, language],
-  );
+  const highlighted = useMemo(() => hljs.highlight(code, { language }).value, [code, language]);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(code);
@@ -517,9 +623,7 @@ function CodeBlock({ code, label, language = 'javascript' }) {
         <div className="code-window-dot bg-red-500/80" />
         <div className="code-window-dot bg-yellow-500/80" />
         <div className="code-window-dot bg-green-500/80" />
-        {label && (
-          <span className="ml-2 text-xs font-medium text-neutral-500">{label}</span>
-        )}
+        {label && <span className="ml-2 text-xs font-medium text-neutral-500">{label}</span>}
         <button
           onClick={handleCopy}
           className="ml-auto rounded-md border border-neutral-700/50 bg-neutral-800/50 px-2.5 py-1 text-xs text-neutral-500 transition hover:text-white hover:border-purple-500/40"
@@ -545,9 +649,7 @@ function QuickStart() {
       <div className="mx-auto max-w-3xl">
         <FadeInSection>
           <div className="text-center mb-16">
-            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
-              Quick Start
-            </h2>
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">Quick Start</h2>
             <p className="text-neutral-400 text-lg max-w-xl mx-auto">
               Get up and running in under a minute.
             </p>
@@ -557,7 +659,9 @@ function QuickStart() {
         <div className="space-y-8">
           <FadeInSection delay={0.1}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 text-sm font-bold text-purple-400">1</div>
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 text-sm font-bold text-purple-400">
+                1
+              </div>
               <h3 className="text-lg font-bold text-white">Install the package</h3>
             </div>
             <CodeBlock code={INSTALL_CODE} label="Terminal" language="bash" />
@@ -569,7 +673,9 @@ function QuickStart() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/10 bg-purple-500/5 px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-purple-300 hover:border-purple-500/30 transition"
               >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+                </svg>
                 Atmosphere
               </a>
               <a
@@ -578,7 +684,9 @@ function QuickStart() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-purple-500/10 bg-purple-500/5 px-3 py-1.5 text-xs font-medium text-neutral-400 hover:text-purple-300 hover:border-purple-500/30 transition"
               >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 013 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L5 8.09v7.82l7 3.94 7-3.94V8.09l-7-3.94z"/></svg>
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M21 16.5c0 .38-.21.71-.53.88l-7.9 4.44c-.16.12-.36.18-.57.18s-.41-.06-.57-.18l-7.9-4.44A.991.991 0 013 16.5v-9c0-.38.21-.71.53-.88l7.9-4.44c.16-.12.36-.18.57-.18s.41.06.57.18l7.9 4.44c.32.17.53.5.53.88v9zM12 4.15L5 8.09v7.82l7 3.94 7-3.94V8.09l-7-3.94z" />
+                </svg>
                 Packosphere
               </a>
             </div>
@@ -586,7 +694,9 @@ function QuickStart() {
 
           <FadeInSection delay={0.2}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 text-sm font-bold text-purple-400">2</div>
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 text-sm font-bold text-purple-400">
+                2
+              </div>
               <h3 className="text-lg font-bold text-white">Configure your server</h3>
             </div>
             <CodeBlock code={USAGE_CODE} label="server/main.js" language="javascript" />
@@ -594,7 +704,9 @@ function QuickStart() {
 
           <FadeInSection delay={0.3}>
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 text-sm font-bold text-purple-400">3</div>
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 text-sm font-bold text-purple-400">
+                3
+              </div>
               <h3 className="text-lg font-bold text-white">Connect your AI agent</h3>
             </div>
             <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
@@ -603,7 +715,8 @@ function QuickStart() {
                 <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-2 py-0.5 text-purple-300 font-mono text-xs">
                   http://localhost:3000/mcp
                 </code>{' '}
-                — agents can now discover and call your methods as tools. Works with Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
+                — agents can now discover and call your methods as tools. Works with Claude Desktop,
+                Cursor, Windsurf, and any MCP-compatible client.
               </p>
             </div>
           </FadeInSection>
@@ -621,7 +734,12 @@ const API_OPTIONS = [
   { option: 'name', type: 'string', default: "'meteor-wormhole'", desc: 'MCP server name' },
   { option: 'version', type: 'string', default: "'1.0.0'", desc: 'MCP server version' },
   { option: 'apiKey', type: 'string | null', default: 'null', desc: 'Bearer token for auth' },
-  { option: 'exclude', type: '(string|RegExp)[]', default: '[]', desc: 'Methods to exclude (all-in mode)' },
+  {
+    option: 'exclude',
+    type: '(string|RegExp)[]',
+    default: '[]',
+    desc: 'Methods to exclude (all-in mode)',
+  },
 ];
 
 function ApiReference() {
@@ -630,9 +748,7 @@ function ApiReference() {
       <div className="mx-auto max-w-4xl">
         <FadeInSection>
           <div className="text-center mb-16">
-            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
-              API Reference
-            </h2>
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">API Reference</h2>
             <p className="text-neutral-400 text-lg max-w-xl mx-auto">
               A simple, intuitive API surface.
             </p>
@@ -677,12 +793,19 @@ function ApiReference() {
           <div className="mt-10 space-y-6">
             <div>
               <h3 className="text-xl font-bold text-white mb-2">
-                <code className="text-purple-400 font-mono">Wormhole.expose(methodName, options)</code>
+                <code className="text-purple-400 font-mono">
+                  Wormhole.expose(methodName, options)
+                </code>
               </h3>
               <p className="text-sm text-neutral-400 leading-relaxed">
                 Explicitly expose a method as an MCP tool. Pass{' '}
-                <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">description</code> and{' '}
-                <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">inputSchema</code>{' '}
+                <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">
+                  description
+                </code>{' '}
+                and{' '}
+                <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">
+                  inputSchema
+                </code>{' '}
                 (JSON Schema) for rich tool metadata.
               </p>
             </div>
@@ -690,7 +813,9 @@ function ApiReference() {
               <h3 className="text-xl font-bold text-white mb-2">
                 <code className="text-purple-400 font-mono">Wormhole.unexpose(methodName)</code>
               </h3>
-              <p className="text-sm text-neutral-400">Remove a method from MCP exposure at runtime.</p>
+              <p className="text-sm text-neutral-400">
+                Remove a method from MCP exposure at runtime.
+              </p>
             </div>
           </div>
         </FadeInSection>
@@ -716,31 +841,52 @@ function McpTester() {
   const logIdRef = useRef(0);
 
   const addLog = useCallback((type, message) => {
-    setLogs((prev) => [...prev, { id: ++logIdRef.current, type, message, time: new Date().toLocaleTimeString() }]);
+    setLogs((prev) => [
+      ...prev,
+      { id: ++logIdRef.current, type, message, time: new Date().toLocaleTimeString() },
+    ]);
   }, []);
 
-  const makeRequest = useCallback(async (method, path, body) => {
-    const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' };
-    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-    if (sessionIdRef.current) headers['Mcp-Session-Id'] = sessionIdRef.current;
+  const makeRequest = useCallback(
+    async (method, path, body) => {
+      const headers = {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/event-stream',
+      };
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      if (sessionIdRef.current) headers['Mcp-Session-Id'] = sessionIdRef.current;
 
-    const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+      const res = await fetch(path, {
+        method,
+        headers,
+        body: body ? JSON.stringify(body) : undefined,
+      });
 
-    const sid = res.headers.get('mcp-session-id');
-    if (sid) sessionIdRef.current = sid;
+      const sid = res.headers.get('mcp-session-id');
+      if (sid) sessionIdRef.current = sid;
 
-    if (res.status === 202) return null;
+      if (res.status === 202) return null;
 
-    const contentType = res.headers.get('content-type') || '';
-    if (contentType.includes('text/event-stream')) {
-      const text = await res.text();
-      const events = text.split('\n').filter(l => l.startsWith('data: ')).map(l => {
-        try { return JSON.parse(l.slice(6)); } catch { return null; }
-      }).filter(Boolean);
-      return events.length === 1 ? events[0] : events;
-    }
-    return res.json();
-  }, [apiKey]);
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('text/event-stream')) {
+        const text = await res.text();
+        const events = text
+          .split('\n')
+          .filter((l) => l.startsWith('data: '))
+          .map((l) => {
+            try {
+              return JSON.parse(l.slice(6));
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean);
+        return events.length === 1 ? events[0] : events;
+      }
+      return res.json();
+    },
+    [apiKey],
+  );
 
   const handleConnect = useCallback(async () => {
     setStatus('connecting');
@@ -793,7 +939,9 @@ function McpTester() {
         const headers = { 'Mcp-Session-Id': sessionIdRef.current };
         if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
         await fetch(endpoint, { method: 'DELETE', headers });
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
     sessionIdRef.current = null;
     setStatus('disconnected');
@@ -817,7 +965,11 @@ function McpTester() {
       } else if (schema.type === 'boolean') {
         args[key] = val === true || val === 'true';
       } else if (schema.type === 'object' || schema.type === 'array') {
-        try { args[key] = JSON.parse(val); } catch { args[key] = val; }
+        try {
+          args[key] = JSON.parse(val);
+        } catch {
+          args[key] = val;
+        }
       } else {
         args[key] = val;
       }
@@ -826,7 +978,7 @@ function McpTester() {
   }, [selectedTool, formValues]);
 
   const handleFormValueChange = useCallback((key, value) => {
-    setFormValues(prev => {
+    setFormValues((prev) => {
       const next = { ...prev, [key]: value };
       return next;
     });
@@ -882,9 +1034,7 @@ function McpTester() {
       <div className="mx-auto max-w-5xl">
         <FadeInSection>
           <div className="text-center mb-16">
-            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
-              Live MCP Tester
-            </h2>
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">Live MCP Tester</h2>
             <p className="text-neutral-400 text-lg max-w-xl mx-auto">
               Connect to the MCP endpoint and test your exposed tools in real time.
             </p>
@@ -899,13 +1049,27 @@ function McpTester() {
                 <div className="mb-5 flex items-center gap-2.5">
                   <motion.div
                     className={`h-2.5 w-2.5 rounded-full ${statusConfig[status].color}`}
-                    animate={status === 'connected' ? { boxShadow: ['0 0 0 0 rgba(34,197,94,0.4)', '0 0 0 6px rgba(34,197,94,0)', '0 0 0 0 rgba(34,197,94,0.4)'] } : {}}
+                    animate={
+                      status === 'connected'
+                        ? {
+                            boxShadow: [
+                              '0 0 0 0 rgba(34,197,94,0.4)',
+                              '0 0 0 6px rgba(34,197,94,0)',
+                              '0 0 0 0 rgba(34,197,94,0.4)',
+                            ],
+                          }
+                        : {}
+                    }
                     transition={{ duration: 2, repeat: Infinity }}
                   />
-                  <span className="text-sm font-semibold text-neutral-300">{statusConfig[status].label}</span>
+                  <span className="text-sm font-semibold text-neutral-300">
+                    {statusConfig[status].label}
+                  </span>
                 </div>
 
-                <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">Endpoint</label>
+                <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  Endpoint
+                </label>
                 <input
                   type="text"
                   value={endpoint}
@@ -915,7 +1079,9 @@ function McpTester() {
                   placeholder="/mcp"
                 />
 
-                <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">API Key (optional)</label>
+                <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  API Key (optional)
+                </label>
                 <input
                   type="password"
                   value={apiKey}
@@ -981,7 +1147,9 @@ function McpTester() {
                         >
                           <span className="font-mono font-semibold text-xs">{tool.name}</span>
                           {tool.description && (
-                            <span className="mt-0.5 block text-xs text-neutral-500">{tool.description}</span>
+                            <span className="mt-0.5 block text-xs text-neutral-500">
+                              {tool.description}
+                            </span>
                           )}
                         </motion.button>
                       ))}
@@ -1013,7 +1181,9 @@ function McpTester() {
                     {selectedTool.inputSchema?.properties && (
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">Parameters</span>
+                          <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
+                            Parameters
+                          </span>
                           <button
                             onClick={() => {
                               if (!showRawJson) {
@@ -1023,11 +1193,26 @@ function McpTester() {
                             }}
                             className="text-[10px] font-semibold text-neutral-500 hover:text-purple-400 transition uppercase tracking-wider flex items-center gap-1"
                           >
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              {showRawJson
-                                ? <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                                : <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                              }
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              {showRawJson ? (
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                                />
+                              ) : (
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                                />
+                              )}
                             </svg>
                             {showRawJson ? 'Form' : 'JSON'}
                           </button>
@@ -1037,69 +1222,95 @@ function McpTester() {
                           <textarea
                             value={toolArgs}
                             onChange={(e) => setToolArgs(e.target.value)}
-                            rows={Math.max(4, Object.keys(selectedTool.inputSchema.properties).length * 2 + 2)}
+                            rows={Math.max(
+                              4,
+                              Object.keys(selectedTool.inputSchema.properties).length * 2 + 2,
+                            )}
                             className="mb-0 w-full rounded-xl border border-purple-500/10 bg-[var(--space-dark)] px-4 py-3 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
                             placeholder='{"key": "value"}'
                           />
                         ) : (
                           <div className="space-y-3">
-                            {Object.entries(selectedTool.inputSchema.properties).map(([key, schema]) => {
-                              const isRequired = selectedTool.inputSchema.required?.includes(key);
-                              return (
-                                <div key={key} className="rounded-xl bg-purple-500/5 border border-purple-500/10 p-3">
-                                  <label className="mb-1.5 flex items-center gap-1.5 text-xs">
-                                    <code className="text-purple-400 font-mono font-semibold">{key}</code>
-                                    <span className="text-neutral-600">{schema.type}</span>
-                                    {isRequired && (
-                                      <span className="text-red-400 text-[10px] font-bold">required</span>
+                            {Object.entries(selectedTool.inputSchema.properties).map(
+                              ([key, schema]) => {
+                                const isRequired = selectedTool.inputSchema.required?.includes(key);
+                                return (
+                                  <div
+                                    key={key}
+                                    className="rounded-xl bg-purple-500/5 border border-purple-500/10 p-3"
+                                  >
+                                    <label className="mb-1.5 flex items-center gap-1.5 text-xs">
+                                      <code className="text-purple-400 font-mono font-semibold">
+                                        {key}
+                                      </code>
+                                      <span className="text-neutral-600">{schema.type}</span>
+                                      {isRequired && (
+                                        <span className="text-red-400 text-[10px] font-bold">
+                                          required
+                                        </span>
+                                      )}
+                                    </label>
+                                    {schema.description && (
+                                      <p className="mb-2 text-[11px] text-neutral-500">
+                                        {schema.description}
+                                      </p>
                                     )}
-                                  </label>
-                                  {schema.description && (
-                                    <p className="mb-2 text-[11px] text-neutral-500">{schema.description}</p>
-                                  )}
-                                  {schema.type === 'boolean' ? (
-                                    <button
-                                      onClick={() => handleFormValueChange(key, !formValues[key])}
-                                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
-                                        formValues[key] ? 'bg-purple-600' : 'bg-neutral-700'
-                                      }`}
-                                    >
-                                      <span className={`inline-block h-4 w-4 rounded-full bg-white transition transform ${
-                                        formValues[key] ? 'translate-x-6' : 'translate-x-1'
-                                      }`} />
-                                    </button>
-                                  ) : schema.enum ? (
-                                    <select
-                                      value={formValues[key] || ''}
-                                      onChange={(e) => handleFormValueChange(key, e.target.value)}
-                                      className="w-full rounded-lg border border-purple-500/10 bg-[var(--space-dark)] px-3 py-2 text-sm text-neutral-200 focus:border-purple-500/40 focus:outline-none transition"
-                                    >
-                                      <option value="">Select...</option>
-                                      {schema.enum.map((opt) => (
-                                        <option key={opt} value={opt}>{String(opt)}</option>
-                                      ))}
-                                    </select>
-                                  ) : schema.type === 'object' || schema.type === 'array' ? (
-                                    <textarea
-                                      value={formValues[key] || ''}
-                                      onChange={(e) => handleFormValueChange(key, e.target.value)}
-                                      rows={3}
-                                      className="w-full rounded-lg border border-purple-500/10 bg-[var(--space-dark)] px-3 py-2 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
-                                      placeholder={schema.type === 'array' ? '[...]' : '{...}'}
-                                    />
-                                  ) : (
-                                    <input
-                                      type={schema.type === 'number' || schema.type === 'integer' ? 'number' : 'text'}
-                                      value={formValues[key] ?? ''}
-                                      onChange={(e) => handleFormValueChange(key, e.target.value)}
-                                      className="w-full rounded-lg border border-purple-500/10 bg-[var(--space-dark)] px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
-                                      placeholder={schema.type === 'number' || schema.type === 'integer' ? '0' : `Enter ${key}...`}
-                                      step={schema.type === 'integer' ? '1' : 'any'}
-                                    />
-                                  )}
-                                </div>
-                              );
-                            })}
+                                    {schema.type === 'boolean' ? (
+                                      <button
+                                        onClick={() => handleFormValueChange(key, !formValues[key])}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                                          formValues[key] ? 'bg-purple-600' : 'bg-neutral-700'
+                                        }`}
+                                      >
+                                        <span
+                                          className={`inline-block h-4 w-4 rounded-full bg-white transition transform ${
+                                            formValues[key] ? 'translate-x-6' : 'translate-x-1'
+                                          }`}
+                                        />
+                                      </button>
+                                    ) : schema.enum ? (
+                                      <select
+                                        value={formValues[key] || ''}
+                                        onChange={(e) => handleFormValueChange(key, e.target.value)}
+                                        className="w-full rounded-lg border border-purple-500/10 bg-[var(--space-dark)] px-3 py-2 text-sm text-neutral-200 focus:border-purple-500/40 focus:outline-none transition"
+                                      >
+                                        <option value="">Select...</option>
+                                        {schema.enum.map((opt) => (
+                                          <option key={opt} value={opt}>
+                                            {String(opt)}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : schema.type === 'object' || schema.type === 'array' ? (
+                                      <textarea
+                                        value={formValues[key] || ''}
+                                        onChange={(e) => handleFormValueChange(key, e.target.value)}
+                                        rows={3}
+                                        className="w-full rounded-lg border border-purple-500/10 bg-[var(--space-dark)] px-3 py-2 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
+                                        placeholder={schema.type === 'array' ? '[...]' : '{...}'}
+                                      />
+                                    ) : (
+                                      <input
+                                        type={
+                                          schema.type === 'number' || schema.type === 'integer'
+                                            ? 'number'
+                                            : 'text'
+                                        }
+                                        value={formValues[key] ?? ''}
+                                        onChange={(e) => handleFormValueChange(key, e.target.value)}
+                                        className="w-full rounded-lg border border-purple-500/10 bg-[var(--space-dark)] px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
+                                        placeholder={
+                                          schema.type === 'number' || schema.type === 'integer'
+                                            ? '0'
+                                            : `Enter ${key}...`
+                                        }
+                                        step={schema.type === 'integer' ? '1' : 'any'}
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              },
+                            )}
                           </div>
                         )}
                       </div>
@@ -1107,7 +1318,9 @@ function McpTester() {
 
                     {!selectedTool.inputSchema?.properties && (
                       <div className="mb-4">
-                        <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">Arguments (JSON)</label>
+                        <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                          Arguments (JSON)
+                        </label>
                         <textarea
                           value={toolArgs}
                           onChange={(e) => setToolArgs(e.target.value)}
@@ -1160,8 +1373,18 @@ function McpTester() {
               <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-neutral-300 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    <svg
+                      className="w-4 h-4 text-neutral-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
                     </svg>
                     Log
                   </h3>

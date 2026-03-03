@@ -1,5 +1,10 @@
 import { Tinytest } from 'meteor/tinytest';
-import { sanitizeToolName, jsonSchemaToZod, genericInputSchema, McpBridge } from '../lib/mcp-bridge';
+import {
+  sanitizeToolName,
+  jsonSchemaToZod,
+  genericInputSchema,
+  McpBridge,
+} from '../lib/mcp-bridge';
 import { MethodRegistry } from '../lib/registry';
 
 // --- sanitizeToolName tests ---
@@ -148,13 +153,16 @@ Tinytest.add('McpBridge - jsonSchemaToZod: undefined schema returns generic', fu
   test.equal(result.args.length, 1);
 });
 
-Tinytest.add('McpBridge - jsonSchemaToZod: schema with no properties returns generic', function (test) {
-  const schema = jsonSchemaToZod({ type: 'object' });
-  // type: object but no properties → falls through to generic
-  test.equal(typeof schema.parse, 'function');
-  const result = schema.parse({ args: [] });
-  test.isTrue(Array.isArray(result.args));
-});
+Tinytest.add(
+  'McpBridge - jsonSchemaToZod: schema with no properties returns generic',
+  function (test) {
+    const schema = jsonSchemaToZod({ type: 'object' });
+    // type: object but no properties → falls through to generic
+    test.equal(typeof schema.parse, 'function');
+    const result = schema.parse({ args: [] });
+    test.isTrue(Array.isArray(result.args));
+  },
+);
 
 Tinytest.add('McpBridge - jsonSchemaToZod: non-object type returns generic', function (test) {
   const schema = jsonSchemaToZod({ type: 'string' });
@@ -225,7 +233,7 @@ Tinytest.add('McpBridge - jsonSchemaToZod: all required fields must be present',
   let threw = false;
   try {
     schema.parse({ a: 'hello' });
-  } catch (e) {
+  } catch (_e) {
     threw = true;
   }
   test.isTrue(threw, 'Should throw when required field is missing');
@@ -245,21 +253,24 @@ Tinytest.add('McpBridge - jsonSchemaToZod: description is preserved on fields', 
   test.equal(result.name, 'test');
 });
 
-Tinytest.add('McpBridge - jsonSchemaToZod: empty required array makes all optional', function (test) {
-  const schema = jsonSchemaToZod({
-    type: 'object',
-    properties: {
-      name: { type: 'string' },
-      age: { type: 'number' },
-    },
-    required: [],
-  });
+Tinytest.add(
+  'McpBridge - jsonSchemaToZod: empty required array makes all optional',
+  function (test) {
+    const schema = jsonSchemaToZod({
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'number' },
+      },
+      required: [],
+    });
 
-  // All fields optional, empty object should work
-  const result = schema.parse({});
-  test.equal(result.name, undefined);
-  test.equal(result.age, undefined);
-});
+    // All fields optional, empty object should work
+    const result = schema.parse({});
+    test.equal(result.name, undefined);
+    test.equal(result.age, undefined);
+  },
+);
 
 // --- sanitizeToolName additional edge cases ---
 

@@ -60,13 +60,17 @@ export class MethodRegistry {
   onChange(fn) {
     this._listeners.push(fn);
     return () => {
-      this._listeners = this._listeners.filter(l => l !== fn);
+      this._listeners = this._listeners.filter((l) => l !== fn);
     };
   }
 
   _notify(event, ...args) {
     for (const fn of this._listeners) {
-      try { fn(event, ...args); } catch (_) { /* ignore listener errors */ }
+      try {
+        fn(event, ...args);
+      } catch (_) {
+        /* ignore listener errors */
+      }
     }
   }
 }

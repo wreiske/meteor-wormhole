@@ -28,9 +28,7 @@ async function main() {
   console.log(`Connecting to: ${urlArg}`);
   console.log('');
 
-  const transport = new StreamableHTTPClientTransport(
-    new URL(urlArg)
-  );
+  const transport = new StreamableHTTPClientTransport(new URL(urlArg));
 
   const client = new Client({
     name: 'wormhole-test-client',
@@ -82,7 +80,9 @@ async function main() {
   // Clean up
   try {
     await transport.close?.();
-  } catch (_) {}
+  } catch (_e) {
+    /* cleanup best-effort */
+  }
 
   console.log('');
   console.log('Done!');
@@ -111,10 +111,16 @@ async function runTests(client, tools) {
   assert(tools.length > 0, 'At least one tool was discovered');
 
   // Test 2: Look for expected tools
-  const toolNames = tools.map(t => t.name);
+  const toolNames = tools.map((t) => t.name);
   assert(toolNames.includes('math_add') || toolNames.includes('math.add'), 'math.add tool exists');
-  assert(toolNames.includes('todos_add') || toolNames.includes('todos.add'), 'todos.add tool exists');
-  assert(toolNames.includes('todos_list') || toolNames.includes('todos.list'), 'todos.list tool exists');
+  assert(
+    toolNames.includes('todos_add') || toolNames.includes('todos.add'),
+    'todos.add tool exists',
+  );
+  assert(
+    toolNames.includes('todos_list') || toolNames.includes('todos.list'),
+    'todos.list tool exists',
+  );
 
   // Test 3: Call math.add
   console.log('');
@@ -137,7 +143,7 @@ async function runTests(client, tools) {
     const todoToolName = toolNames.includes('todos_add') ? 'todos_add' : 'todos.add';
     const result = await client.callTool({
       name: todoToolName,
-      arguments: { title: 'Test from MCP client', priority: 5 }
+      arguments: { title: 'Test from MCP client', priority: 5 },
     });
     const text = result.content?.[0]?.text || '';
     const parsed = JSON.parse(text);
@@ -165,14 +171,14 @@ async function runTests(client, tools) {
   }
 
   // Test 6: Call echo (generic schema with args)
-  const echoToolName = toolNames.find(n => n === 'echo');
+  const echoToolName = toolNames.find((n) => n === 'echo');
   if (echoToolName) {
     console.log('');
     console.log('  Testing echo (generic args)...');
     try {
       const result = await client.callTool({
         name: echoToolName,
-        arguments: { args: ['hello', 42, true] }
+        arguments: { args: ['hello', 42, true] },
       });
       const text = result.content?.[0]?.text || '';
       const parsed = JSON.parse(text);
@@ -198,14 +204,18 @@ async function interactiveDemo(client, tools) {
   console.log(SEPARATOR);
 
   // Demo: add some todos
-  const todoToolName = tools.find(t => t.name.includes('todos_add') || t.name.includes('todos.add'))?.name;
-  const listToolName = tools.find(t => t.name.includes('todos_list') || t.name.includes('todos.list'))?.name;
+  const todoToolName = tools.find(
+    (t) => t.name.includes('todos_add') || t.name.includes('todos.add'),
+  )?.name;
+  const listToolName = tools.find(
+    (t) => t.name.includes('todos_list') || t.name.includes('todos.list'),
+  )?.name;
 
   if (todoToolName) {
     console.log('Adding a todo...');
     const addResult = await client.callTool({
       name: todoToolName,
-      arguments: { title: 'Buy groceries', priority: 4 }
+      arguments: { title: 'Buy groceries', priority: 4 },
     });
     console.log('Result:', addResult.content?.[0]?.text);
     console.log('');
@@ -213,7 +223,7 @@ async function interactiveDemo(client, tools) {
     console.log('Adding another todo...');
     const addResult2 = await client.callTool({
       name: todoToolName,
-      arguments: { title: 'Write documentation', priority: 2 }
+      arguments: { title: 'Write documentation', priority: 2 },
     });
     console.log('Result:', addResult2.content?.[0]?.text);
     console.log('');
@@ -223,26 +233,28 @@ async function interactiveDemo(client, tools) {
     console.log('Listing all todos...');
     const listResult = await client.callTool({
       name: listToolName,
-      arguments: {}
+      arguments: {},
     });
     console.log('Result:', listResult.content?.[0]?.text);
     console.log('');
   }
 
   // Demo: math
-  const mathToolName = tools.find(t => t.name.includes('math_add') || t.name.includes('math.add'))?.name;
+  const mathToolName = tools.find(
+    (t) => t.name.includes('math_add') || t.name.includes('math.add'),
+  )?.name;
   if (mathToolName) {
     console.log('Calling math.add(100, 200)...');
     const mathResult = await client.callTool({
       name: mathToolName,
-      arguments: { a: 100, b: 200 }
+      arguments: { a: 100, b: 200 },
     });
     console.log('Result:', mathResult.content?.[0]?.text);
     console.log('');
   }
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('Fatal error:', err);
   process.exit(1);
 });

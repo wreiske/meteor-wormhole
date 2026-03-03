@@ -1,7 +1,13 @@
 import { Tinytest } from 'meteor/tinytest';
 import { Meteor } from 'meteor/meteor';
 import { MethodRegistry } from '../lib/registry';
-import { installHook, removeHook, isHooked, shouldExclude, DEFAULT_EXCLUDE_PATTERNS } from '../lib/hooks';
+import {
+  installHook,
+  removeHook,
+  isHooked,
+  shouldExclude,
+  DEFAULT_EXCLUDE_PATTERNS,
+} from '../lib/hooks';
 
 // Helper: clean up hook state after each test group
 function withCleanHook(fn) {
@@ -60,107 +66,146 @@ Tinytest.add('Hooks - shouldExclude: custom regex exclusion', function (test) {
 
 // --- installHook / removeHook tests ---
 
-Tinytest.add('Hooks - installHook patches Meteor.methods', withCleanHook(function (test) {
-  const reg = new MethodRegistry();
-  const before = Meteor.methods;
-  installHook(reg);
-  test.notEqual(Meteor.methods, before, 'Meteor.methods should be replaced');
-  test.isTrue(isHooked());
-}));
+Tinytest.add(
+  'Hooks - installHook patches Meteor.methods',
+  withCleanHook(function (test) {
+    const reg = new MethodRegistry();
+    const before = Meteor.methods;
+    installHook(reg);
+    test.notEqual(Meteor.methods, before, 'Meteor.methods should be replaced');
+    test.isTrue(isHooked());
+  }),
+);
 
-Tinytest.add('Hooks - removeHook restores Meteor.methods', withCleanHook(function (test) {
-  const reg = new MethodRegistry();
-  const before = Meteor.methods;
-  installHook(reg);
-  removeHook();
-  test.isFalse(isHooked());
-  // After removeHook, Meteor.methods should be the original bound version
-  // We can verify by checking that it's a function at least
-  test.equal(typeof Meteor.methods, 'function');
-}));
+Tinytest.add(
+  'Hooks - removeHook restores Meteor.methods',
+  withCleanHook(function (test) {
+    const reg = new MethodRegistry();
+    installHook(reg);
+    removeHook();
+    test.isFalse(isHooked());
+    // After removeHook, Meteor.methods should be the original bound version
+    // We can verify by checking that it's a function at least
+    test.equal(typeof Meteor.methods, 'function');
+  }),
+);
 
-Tinytest.add('Hooks - installHook is idempotent', withCleanHook(function (test) {
-  const reg = new MethodRegistry();
-  installHook(reg);
-  const afterFirst = Meteor.methods;
-  installHook(reg); // Should be a no-op
-  test.equal(Meteor.methods, afterFirst, 'Second install should not change anything');
-}));
+Tinytest.add(
+  'Hooks - installHook is idempotent',
+  withCleanHook(function (test) {
+    const reg = new MethodRegistry();
+    installHook(reg);
+    const afterFirst = Meteor.methods;
+    installHook(reg); // Should be a no-op
+    test.equal(Meteor.methods, afterFirst, 'Second install should not change anything');
+  }),
+);
 
-Tinytest.add('Hooks - hook captures methods in registry', withCleanHook(function (test) {
-  const reg = new MethodRegistry();
-  installHook(reg);
+Tinytest.add(
+  'Hooks - hook captures methods in registry',
+  withCleanHook(function (test) {
+    const reg = new MethodRegistry();
+    installHook(reg);
 
-  const name = uid('hooked');
-  Meteor.methods({
-    [name]() { return 42; }
-  });
+    const name = uid('hooked');
+    Meteor.methods({
+      [name]() {
+        return 42;
+      },
+    });
 
-  test.isTrue(reg.has(name));
-  test.equal(reg.get(name).description, `Meteor method: ${name}`);
-}));
+    test.isTrue(reg.has(name));
+    test.equal(reg.get(name).description, `Meteor method: ${name}`);
+  }),
+);
 
-Tinytest.add('Hooks - hook excludes internal methods', withCleanHook(function (test) {
-  const reg = new MethodRegistry();
-  installHook(reg);
+Tinytest.add(
+  'Hooks - hook excludes internal methods',
+  withCleanHook(function (test) {
+    const reg = new MethodRegistry();
+    installHook(reg);
 
-  const privateName = uid('_private');
-  const publicName = uid('public');
-  Meteor.methods({
-    [privateName]() { return 1; },
-    [publicName]() { return 2; },
-  });
+    const privateName = uid('_private');
+    const publicName = uid('public');
+    Meteor.methods({
+      [privateName]() {
+        return 1;
+      },
+      [publicName]() {
+        return 2;
+      },
+    });
 
-  test.isFalse(reg.has(privateName));
-  test.isTrue(reg.has(publicName));
-}));
+    test.isFalse(reg.has(privateName));
+    test.isTrue(reg.has(publicName));
+  }),
+);
 
-Tinytest.add('Hooks - hook respects custom exclude list', withCleanHook(function (test) {
-  const reg = new MethodRegistry();
-  const excludedName = uid('excluded');
-  const patternName = `pat_match_${++_uid}_${Date.now()}`;
-  const allowedName = uid('allowed');
-  installHook(reg, { exclude: [excludedName, /^pat_match/] });
+Tinytest.add(
+  'Hooks - hook respects custom exclude list',
+  withCleanHook(function (test) {
+    const reg = new MethodRegistry();
+    const excludedName = uid('excluded');
+    const patternName = `pat_match_${++_uid}_${Date.now()}`;
+    const allowedName = uid('allowed');
+    installHook(reg, { exclude: [excludedName, /^pat_match/] });
 
-  Meteor.methods({
-    [excludedName]() { return 1; },
-    [patternName]() { return 2; },
-    [allowedName]() { return 3; },
-  });
+    Meteor.methods({
+      [excludedName]() {
+        return 1;
+      },
+      [patternName]() {
+        return 2;
+      },
+      [allowedName]() {
+        return 3;
+      },
+    });
 
-  test.isFalse(reg.has(excludedName));
-  test.isFalse(reg.has(patternName));
-  test.isTrue(reg.has(allowedName));
-}));
+    test.isFalse(reg.has(excludedName));
+    test.isFalse(reg.has(patternName));
+    test.isTrue(reg.has(allowedName));
+  }),
+);
 
-Tinytest.add('Hooks - hook does not duplicate already-registered methods', withCleanHook(function (test) {
-  const reg = new MethodRegistry();
-  const name = uid('preregistered');
-  reg.register(name, { description: 'custom desc' });
-  installHook(reg);
+Tinytest.add(
+  'Hooks - hook does not duplicate already-registered methods',
+  withCleanHook(function (test) {
+    const reg = new MethodRegistry();
+    const name = uid('preregistered');
+    reg.register(name, { description: 'custom desc' });
+    installHook(reg);
 
-  Meteor.methods({
-    [name]() { return 1; }
-  });
+    Meteor.methods({
+      [name]() {
+        return 1;
+      },
+    });
 
-  // Should keep the original description, not overwrite
-  test.equal(reg.get(name).description, 'custom desc');
-}));
+    // Should keep the original description, not overwrite
+    test.equal(reg.get(name).description, 'custom desc');
+  }),
+);
 
-Tinytest.add('Hooks - methods still work after hooking', withCleanHook(function (test) {
-  const reg = new MethodRegistry();
-  installHook(reg);
+Tinytest.add(
+  'Hooks - methods still work after hooking',
+  withCleanHook(function (test) {
+    const reg = new MethodRegistry();
+    installHook(reg);
 
-  const name = uid('functional');
-  // This should not throw — the original Meteor.methods should still be called
-  Meteor.methods({
-    [name]() { return 'works'; }
-  });
+    const name = uid('functional');
+    // This should not throw — the original Meteor.methods should still be called
+    Meteor.methods({
+      [name]() {
+        return 'works';
+      },
+    });
 
-  // We can verify the method was actually registered with Meteor
-  // by checking it's in our registry (the hook captured it)
-  test.isTrue(reg.has(name));
-}));
+    // We can verify the method was actually registered with Meteor
+    // by checking it's in our registry (the hook captured it)
+    test.isTrue(reg.has(name));
+  }),
+);
 
 Tinytest.add('Hooks - DEFAULT_EXCLUDE_PATTERNS is an array of regexes', function (test) {
   test.isTrue(Array.isArray(DEFAULT_EXCLUDE_PATTERNS));
@@ -203,32 +248,42 @@ Tinytest.add('Hooks - shouldExclude: empty custom excludes array has no effect',
 
 // --- Hook registration with multiple method batches ---
 
-Tinytest.add('Hooks - hook captures methods from multiple Meteor.methods calls', withCleanHook(function (test) {
-  const reg = new MethodRegistry();
-  installHook(reg);
+Tinytest.add(
+  'Hooks - hook captures methods from multiple Meteor.methods calls',
+  withCleanHook(function (test) {
+    const reg = new MethodRegistry();
+    installHook(reg);
 
-  const name1 = uid('batch1');
-  const name2 = uid('batch2');
-  Meteor.methods({
-    [name1]() { return 1; },
-  });
-  Meteor.methods({
-    [name2]() { return 2; },
-  });
+    const name1 = uid('batch1');
+    const name2 = uid('batch2');
+    Meteor.methods({
+      [name1]() {
+        return 1;
+      },
+    });
+    Meteor.methods({
+      [name2]() {
+        return 2;
+      },
+    });
 
-  test.isTrue(reg.has(name1));
-  test.isTrue(reg.has(name2));
-  test.equal(reg.size(), 2);
-}));
+    test.isTrue(reg.has(name1));
+    test.isTrue(reg.has(name2));
+    test.equal(reg.size(), 2);
+  }),
+);
 
 // --- removeHook edge cases ---
 
-Tinytest.add('Hooks - removeHook is idempotent', withCleanHook(function (test) {
-  // Should not throw when called multiple times
-  removeHook();
-  removeHook();
-  test.isFalse(isHooked());
-}));
+Tinytest.add(
+  'Hooks - removeHook is idempotent',
+  withCleanHook(function (test) {
+    // Should not throw when called multiple times
+    removeHook();
+    removeHook();
+    test.isFalse(isHooked());
+  }),
+);
 
 Tinytest.add('Hooks - isHooked starts as false', function (test) {
   // After all cleanup, should be false

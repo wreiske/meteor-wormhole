@@ -1,9 +1,35 @@
 {
   "name": "meteor-wormhole-monorepo",
   "private": true,
+  "type": "module",
   "description": "Monorepo for meteor-wormhole: A cosmic bridge connecting Meteor methods to AI agents through MCP",
   "scripts": {
     "setup": "bash scripts/setup.sh",
-    "test:client": "cd test-client && node index.mjs"
+    "test:client": "cd test-client && node index.mjs",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{js,jsx,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css,html,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.3",
+    "eslint": "^9.39.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^17.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.1",
+    "prettier": "^3.8.1"
   }
 }

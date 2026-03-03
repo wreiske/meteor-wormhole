@@ -1,6 +1,6 @@
 const { defineConfig } = require('@meteorjs/rspack');
 
-module.exports = defineConfig(Meteor => {
+module.exports = defineConfig((_Meteor) => {
   return {
     module: {
       rules: [

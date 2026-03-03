@@ -115,7 +115,7 @@ Tinytest.add('Registry - onChange fires on register', function (test) {
   let notified = false;
   let notifiedEvent = null;
 
-  reg.onChange((event, name) => {
+  reg.onChange((event, _name) => {
     notified = true;
     notifiedEvent = event;
   });
@@ -130,7 +130,9 @@ Tinytest.add('Registry - onChange fires on unregister', function (test) {
   reg.register('to.watch');
   let notifiedEvent = null;
 
-  reg.onChange((event) => { notifiedEvent = event; });
+  reg.onChange((event) => {
+    notifiedEvent = event;
+  });
   reg.unregister('to.watch');
 
   test.equal(notifiedEvent, 'unregister');
@@ -141,7 +143,9 @@ Tinytest.add('Registry - onChange fires on clear', function (test) {
   reg.register('x');
   let notifiedEvent = null;
 
-  reg.onChange((event) => { notifiedEvent = event; });
+  reg.onChange((event) => {
+    notifiedEvent = event;
+  });
   reg.clear();
 
   test.equal(notifiedEvent, 'clear');
@@ -151,7 +155,9 @@ Tinytest.add('Registry - onChange can be unsubscribed', function (test) {
   const reg = new MethodRegistry();
   let count = 0;
 
-  const unsub = reg.onChange(() => { count++; });
+  const unsub = reg.onChange(() => {
+    count++;
+  });
   reg.register('a');
   test.equal(count, 1);
 
@@ -207,8 +213,12 @@ Tinytest.add('Registry - multiple listeners all get notified', function (test) {
   let count1 = 0;
   let count2 = 0;
 
-  reg.onChange(() => { count1++; });
-  reg.onChange(() => { count2++; });
+  reg.onChange(() => {
+    count1++;
+  });
+  reg.onChange(() => {
+    count2++;
+  });
 
   reg.register('multi');
   test.equal(count1, 1);
@@ -219,8 +229,12 @@ Tinytest.add('Registry - listener error does not break other listeners', functio
   const reg = new MethodRegistry();
   let secondCalled = false;
 
-  reg.onChange(() => { throw new Error('bad listener'); });
-  reg.onChange(() => { secondCalled = true; });
+  reg.onChange(() => {
+    throw new Error('bad listener');
+  });
+  reg.onChange(() => {
+    secondCalled = true;
+  });
 
   reg.register('error.test');
   test.isTrue(secondCalled, 'Second listener should still be called');
@@ -230,7 +244,9 @@ Tinytest.add('Registry - unregister does not fire onChange for non-existent', fu
   const reg = new MethodRegistry();
   let notified = false;
 
-  reg.onChange(() => { notified = true; });
+  reg.onChange(() => {
+    notified = true;
+  });
   reg.unregister('nonexistent');
   test.isFalse(notified);
 });
@@ -239,7 +255,9 @@ Tinytest.add('Registry - clear on empty registry fires onChange', function (test
   const reg = new MethodRegistry();
   let notified = false;
 
-  reg.onChange(() => { notified = true; });
+  reg.onChange(() => {
+    notified = true;
+  });
   reg.clear();
   test.isTrue(notified);
 });

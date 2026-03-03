@@ -8,7 +8,7 @@ Package.describe({
 
 Npm.depends({
   '@modelcontextprotocol/sdk': '1.27.1',
-  'zod': '4.3.6',
+  zod: '4.3.6',
 });
 
 Package.onUse(function (api) {
