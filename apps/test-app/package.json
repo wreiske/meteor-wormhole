@@ -27,7 +27,9 @@
   "dependencies": {
     "@babel/runtime": "^7.28.6",
     "@swc/helpers": "^0.5.17",
+    "highlight.js": "^11.11.1",
     "meteor-node-stubs": "^1.2.27",
+    "motion": "^12.34.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   }

@@ -1,47 +1,288 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'motion/react';
+import hljs from 'highlight.js/lib/core';
+import javascript from 'highlight.js/lib/languages/javascript';
+import bash from 'highlight.js/lib/languages/bash';
+import json from 'highlight.js/lib/languages/json';
 
-// ─── Hero ───────────────────────────────────────────────────────────────────────
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('json', json);
 
-function Hero() {
+// ─── Shared Animation Helpers ───────────────────────────────────────────────────
+
+function FadeInSection({ children, className = '', delay = 0 }) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-80px' });
+
   return (
-    <section className="relative overflow-hidden px-6 pt-24 pb-16 text-center">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-6 text-6xl">🌀</div>
-        <h1 className="mb-4 text-5xl font-extrabold tracking-tight text-white">
-          Meteor Wormhole
-        </h1>
-        <p className="mb-2 text-xl text-neutral-300">
-          A cosmic bridge connecting Meteor methods to AI agents through{' '}
-          <a
-            href="https://modelcontextprotocol.io/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-purple-400 underline decoration-purple-400/40 hover:decoration-purple-400"
-          >
-            MCP
-          </a>
-        </p>
-        <p className="mb-8 text-neutral-500">
-          Expose your <code className="rounded bg-neutral-800 px-1.5 py-0.5 text-sm text-purple-300">Meteor.methods</code> as
-          MCP tools so AI agents like Claude, GPT, and others can discover and invoke them.
-        </p>
-        <div className="flex justify-center gap-4">
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 40 }}
+      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 40 }}
+      transition={{ duration: 0.7, delay, ease: [0.25, 0.46, 0.45, 0.94] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function StaggerChildren({ children, className = '', stagger = 0.1 }) {
+  const ref = useRef(null);
+  const isInView = useInView(ref, { once: true, margin: '-60px' });
+
+  return (
+    <motion.div
+      ref={ref}
+      initial="hidden"
+      animate={isInView ? 'visible' : 'hidden'}
+      variants={{
+        hidden: {},
+        visible: { transition: { staggerChildren: stagger } },
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+const staggerChild = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] } },
+};
+
+// ─── Floating Particles ─────────────────────────────────────────────────────────
+
+function FloatingParticles() {
+  const particles = useMemo(() =>
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 3 + 1,
+      duration: Math.random() * 20 + 15,
+      delay: Math.random() * 10,
+      opacity: Math.random() * 0.5 + 0.1,
+      color: Math.random() > 0.6 ? 'rgba(139,92,246,' : 'rgba(34,211,238,',
+    })), []);
+
+  return (
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: p.size,
+            height: p.size,
+            background: `${p.color}${p.opacity})`,
+            boxShadow: `0 0 ${p.size * 3}px ${p.color}${p.opacity * 0.5})`,
+          }}
+          animate={{
+            y: [0, -30, 0],
+            x: [0, Math.random() * 20 - 10, 0],
+            opacity: [p.opacity, p.opacity * 1.5, p.opacity],
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            repeat: Infinity,
+            ease: 'easeInOut',
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Navbar ─────────────────────────────────────────────────────────────────────
+
+function Navbar() {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 50);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  return (
+    <motion.nav
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.6, ease: 'easeOut' }}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled
+          ? 'bg-[rgba(5,5,16,0.85)] backdrop-blur-xl border-b border-purple-500/10'
+          : 'bg-transparent'
+      }`}
+    >
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <a href="#" className="flex items-center gap-2.5 group">
+          <div className="relative w-8 h-8">
+            <motion.div
+              className="absolute inset-0 rounded-full border border-purple-500/50"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+            />
+            <motion.div
+              className="absolute inset-1 rounded-full border border-cyan-400/40"
+              animate={{ rotate: -360 }}
+              transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+            />
+            <div className="absolute inset-2 rounded-full bg-purple-500/30" />
+          </div>
+          <span className="text-sm font-bold text-white tracking-wide">WORMHOLE</span>
+        </a>
+        <div className="hidden sm:flex items-center gap-6 text-sm">
+          <a href="#features" className="text-neutral-400 hover:text-white transition">Features</a>
+          <a href="#how-it-works" className="text-neutral-400 hover:text-white transition">How It Works</a>
+          <a href="#quickstart" className="text-neutral-400 hover:text-white transition">Quick Start</a>
+          <a href="#tester" className="text-neutral-400 hover:text-white transition">Tester</a>
           <a
             href="https://github.com/wreiske/meteor-wormhole"
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded-lg bg-purple-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-purple-500"
+            className="rounded-lg bg-purple-600/80 px-4 py-2 text-white font-medium hover:bg-purple-500 transition"
           >
-            GitHub →
-          </a>
-          <a
-            href="#tester"
-            className="rounded-lg border border-neutral-700 px-6 py-3 text-sm font-semibold text-neutral-300 transition hover:border-neutral-500 hover:text-white"
-          >
-            Try the MCP Tester ↓
+            GitHub
           </a>
         </div>
       </div>
+    </motion.nav>
+  );
+}
+
+// ─── Hero ───────────────────────────────────────────────────────────────────────
+
+function WormholePortal() {
+  return (
+    <div className="wormhole-portal">
+      <motion.div
+        className="wormhole-ring wormhole-ring-1"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 1.2, delay: 0.2 }}
+      />
+      <motion.div
+        className="wormhole-ring wormhole-ring-2"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 1, delay: 0.4 }}
+      />
+      <motion.div
+        className="wormhole-ring wormhole-ring-3"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.8, delay: 0.6 }}
+      />
+      <motion.div
+        className="wormhole-ring wormhole-ring-4"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.6, delay: 0.8 }}
+      />
+      <motion.div
+        className="wormhole-core"
+        initial={{ scale: 0 }}
+        animate={{ scale: 1 }}
+        transition={{ duration: 0.8, delay: 1 }}
+      />
+    </div>
+  );
+}
+
+function Hero() {
+  const ref = useRef(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ['start start', 'end start'] });
+  const y = useTransform(scrollYProgress, [0, 1], [0, 150]);
+  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+
+  return (
+    <section ref={ref} className="relative overflow-hidden px-6 pt-32 pb-24 min-h-[90vh] flex items-center">
+      {/* Nebula Glows */}
+      <div className="nebula-glow nebula-glow-purple absolute -top-40 -left-40" />
+      <div className="nebula-glow nebula-glow-cyan absolute -bottom-40 -right-40" />
+
+      <motion.div style={{ y, opacity }} className="mx-auto max-w-4xl text-center relative z-10">
+        <motion.div
+          initial={{ scale: 0.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 1, ease: [0.25, 0.46, 0.45, 0.94] }}
+        >
+          <WormholePortal />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.8 }}
+          className="mt-10"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.6, delay: 1 }}
+            className="inline-block mb-6 rounded-full border border-purple-500/30 bg-purple-500/10 px-4 py-1.5 text-xs font-medium text-purple-300 tracking-wide"
+          >
+            MODEL CONTEXT PROTOCOL
+          </motion.div>
+
+          <h1 className="mb-6 text-5xl sm:text-7xl font-black tracking-tight">
+            <span className="text-white">Meteor</span>{' '}
+            <span className="gradient-text">Wormhole</span>
+          </h1>
+
+          <p className="mb-4 text-lg sm:text-xl text-neutral-300 max-w-2xl mx-auto leading-relaxed">
+            A cosmic bridge connecting your{' '}
+            <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-2 py-0.5 text-sm text-purple-300 font-mono">
+              Meteor.methods
+            </code>{' '}
+            to AI agents through{' '}
+            <a
+              href="https://modelcontextprotocol.io/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30 hover:decoration-cyan-400/60 underline-offset-2 transition"
+            >
+              MCP
+            </a>
+          </p>
+
+          <p className="mb-10 text-neutral-500 max-w-xl mx-auto">
+            Expose your server methods as MCP tools so Claude, GPT, and other AI agents
+            can discover and invoke them — zero config required.
+          </p>
+
+          <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <motion.a
+              href="https://github.com/wreiske/meteor-wormhole"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-glow relative rounded-xl bg-purple-600 px-8 py-3.5 text-sm font-bold text-white transition hover:bg-purple-500 hover:shadow-lg hover:shadow-purple-500/25"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                View on GitHub
+              </span>
+            </motion.a>
+            <motion.a
+              href="#tester"
+              className="rounded-xl border border-neutral-700/50 bg-white/5 px-8 py-3.5 text-sm font-bold text-neutral-300 transition hover:border-purple-500/40 hover:text-white hover:bg-purple-500/5"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Try the Live Tester ↓
+            </motion.a>
+          </div>
+        </motion.div>
+      </motion.div>
     </section>
   );
 }
@@ -50,32 +291,68 @@ function Hero() {
 
 const FEATURES = [
   {
-    icon: '⚡',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+    color: 'text-yellow-400',
+    bg: 'bg-yellow-400/10 border-yellow-400/20',
     title: 'All-In Mode',
     desc: 'Automatically expose all Meteor methods as MCP tools with a single line of code.',
   },
   {
-    icon: '🎯',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+    color: 'text-green-400',
+    bg: 'bg-green-400/10 border-green-400/20',
     title: 'Opt-In Mode',
     desc: 'Selectively expose specific methods with rich descriptions and input schemas.',
   },
   {
-    icon: '🔒',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      </svg>
+    ),
+    color: 'text-red-400',
+    bg: 'bg-red-400/10 border-red-400/20',
     title: 'API Key Auth',
     desc: 'Optional bearer token authentication to secure your MCP endpoint.',
   },
   {
-    icon: '🔌',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0" />
+      </svg>
+    ),
+    color: 'text-blue-400',
+    bg: 'bg-blue-400/10 border-blue-400/20',
     title: 'Streamable HTTP',
     desc: 'MCP server embedded in your Meteor app via WebApp — no separate process needed.',
   },
   {
-    icon: '📐',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+      </svg>
+    ),
+    color: 'text-orange-400',
+    bg: 'bg-orange-400/10 border-orange-400/20',
     title: 'Input Schemas',
     desc: 'Define JSON Schema for method parameters — auto-converted to Zod for validation.',
   },
   {
-    icon: '🛡️',
+    icon: (
+      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+    color: 'text-purple-400',
+    bg: 'bg-purple-400/10 border-purple-400/20',
     title: 'Smart Defaults',
     desc: 'Auto-excludes internal Meteor and accounts methods in all-in mode.',
   },
@@ -83,27 +360,123 @@ const FEATURES = [
 
 function Features() {
   return (
-    <section className="px-6 py-16">
-      <div className="mx-auto max-w-5xl">
-        <h2 className="mb-10 text-center text-3xl font-bold text-white">Features</h2>
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+    <section id="features" className="relative px-6 py-24">
+      <div className="mx-auto max-w-6xl">
+        <FadeInSection>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+              Everything You Need
+            </h2>
+            <p className="text-neutral-400 text-lg max-w-2xl mx-auto">
+              Wormhole handles the heavy lifting so you can focus on building your Meteor app.
+            </p>
+          </div>
+        </FadeInSection>
+
+        <StaggerChildren className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3" stagger={0.08}>
           {FEATURES.map((f) => (
-            <div
+            <motion.div
               key={f.title}
-              className="rounded-xl border border-neutral-800 bg-neutral-900 p-6 transition hover:border-neutral-700"
+              variants={staggerChild}
+              className="glass-card rounded-2xl p-6 group cursor-default"
             >
-              <div className="mb-3 text-3xl">{f.icon}</div>
-              <h3 className="mb-2 text-lg font-semibold text-white">{f.title}</h3>
+              <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl border ${f.bg} ${f.color} mb-4`}>
+                {f.icon}
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2 group-hover:text-purple-300 transition">
+                {f.title}
+              </h3>
               <p className="text-sm leading-relaxed text-neutral-400">{f.desc}</p>
-            </div>
+            </motion.div>
           ))}
+        </StaggerChildren>
+      </div>
+    </section>
+  );
+}
+
+// ─── How It Works ───────────────────────────────────────────────────────────────
+
+const STEPS = [
+  {
+    title: 'Registration',
+    desc: 'In all-in mode, the package hooks Meteor.methods to intercept every registration. In opt-in mode, call Wormhole.expose() manually.',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      </svg>
+    ),
+  },
+  {
+    title: 'MCP Server',
+    desc: 'A Streamable HTTP MCP server is mounted at the configured path (default /mcp) on Meteor\'s WebApp.',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Tool Mapping',
+    desc: 'Each exposed Meteor method becomes an MCP tool. Names are sanitized (e.g. todos.add → todos_add) for protocol compliance.',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Invocation',
+    desc: 'When an AI agent calls a tool, the bridge invokes the Meteor method via Meteor.callAsync() and returns the result.',
+    icon: (
+      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    ),
+  },
+];
+
+function HowItWorks() {
+  return (
+    <section id="how-it-works" className="relative px-6 py-24">
+      <div className="mx-auto max-w-3xl">
+        <FadeInSection>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+              How It Works
+            </h2>
+            <p className="text-neutral-400 text-lg max-w-xl mx-auto">
+              From registration to invocation in four seamless steps.
+            </p>
+          </div>
+        </FadeInSection>
+
+        <div className="relative">
+          <div className="timeline-line" />
+          <StaggerChildren className="space-y-10" stagger={0.15}>
+            {STEPS.map((s, i) => (
+              <motion.div key={i} variants={staggerChild} className="flex gap-5 relative">
+                <div className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--space-dark)] border-2 border-purple-500/50 text-purple-400">
+                  {s.icon}
+                </div>
+                <div className="glass-card rounded-xl p-5 flex-1" style={{ cursor: 'default' }}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-bold tracking-widest text-purple-400/60 uppercase">Step {i + 1}</span>
+                  </div>
+                  <h3 className="font-bold text-white text-lg mb-1">{s.title}</h3>
+                  <p className="text-sm text-neutral-400 leading-relaxed">{s.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </StaggerChildren>
         </div>
       </div>
     </section>
   );
 }
 
-// ─── Quick Start ────────────────────────────────────────────────────────────────
+// ─── Code Block with Syntax Highlighting ────────────────────────────────────────
 
 const INSTALL_CODE = `meteor add wreiske:meteor-wormhole`;
 
@@ -125,8 +498,13 @@ Wormhole.expose('todos.add', {
   },
 });`;
 
-function CodeBlock({ code, label }) {
+function CodeBlock({ code, label, language = 'javascript' }) {
   const [copied, setCopied] = useState(false);
+  const highlighted = useMemo(
+    () => hljs.highlight(code, { language }).value,
+    [code, language],
+  );
+
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(code);
     setCopied(true);
@@ -134,22 +512,28 @@ function CodeBlock({ code, label }) {
   }, [code]);
 
   return (
-    <div className="relative">
-      {label && (
-        <div className="rounded-t-lg border border-b-0 border-neutral-800 bg-neutral-800/50 px-4 py-2 text-xs font-medium text-neutral-400">
-          {label}
-        </div>
-      )}
-      <div className={`relative overflow-x-auto border border-neutral-800 bg-neutral-900 p-4 ${label ? 'rounded-b-lg' : 'rounded-lg'}`}>
-        <pre className="text-sm leading-relaxed text-neutral-300">
-          <code>{code}</code>
-        </pre>
+    <div className="code-window">
+      <div className="code-window-header">
+        <div className="code-window-dot bg-red-500/80" />
+        <div className="code-window-dot bg-yellow-500/80" />
+        <div className="code-window-dot bg-green-500/80" />
+        {label && (
+          <span className="ml-2 text-xs font-medium text-neutral-500">{label}</span>
+        )}
         <button
           onClick={handleCopy}
-          className="absolute top-3 right-3 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-xs text-neutral-400 transition hover:text-white"
+          className="ml-auto rounded-md border border-neutral-700/50 bg-neutral-800/50 px-2.5 py-1 text-xs text-neutral-500 transition hover:text-white hover:border-purple-500/40"
         >
           {copied ? '✓ Copied' : 'Copy'}
         </button>
+      </div>
+      <div className="code-window-body">
+        <pre>
+          <code
+            className={`hljs language-${language}`}
+            dangerouslySetInnerHTML={{ __html: highlighted }}
+          />
+        </pre>
       </div>
     </div>
   );
@@ -157,28 +541,51 @@ function CodeBlock({ code, label }) {
 
 function QuickStart() {
   return (
-    <section className="px-6 py-16">
+    <section id="quickstart" className="relative px-6 py-24">
       <div className="mx-auto max-w-3xl">
-        <h2 className="mb-10 text-center text-3xl font-bold text-white">Quick Start</h2>
-        <div className="space-y-6">
-          <div>
-            <h3 className="mb-3 text-lg font-semibold text-neutral-200">1. Install</h3>
-            <CodeBlock code={INSTALL_CODE} label="Terminal" />
-          </div>
-          <div>
-            <h3 className="mb-3 text-lg font-semibold text-neutral-200">2. Configure</h3>
-            <CodeBlock code={USAGE_CODE} label="server/main.js" />
-          </div>
-          <div>
-            <h3 className="mb-3 text-lg font-semibold text-neutral-200">3. Connect</h3>
-            <p className="text-sm text-neutral-400">
-              Point your MCP client at{' '}
-              <code className="rounded bg-neutral-800 px-1.5 py-0.5 text-purple-300">
-                http://localhost:3000/mcp
-              </code>{' '}
-              — agents can now discover and call your methods as tools.
+        <FadeInSection>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+              Quick Start
+            </h2>
+            <p className="text-neutral-400 text-lg max-w-xl mx-auto">
+              Get up and running in under a minute.
             </p>
           </div>
+        </FadeInSection>
+
+        <div className="space-y-8">
+          <FadeInSection delay={0.1}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 text-sm font-bold text-purple-400">1</div>
+              <h3 className="text-lg font-bold text-white">Install the package</h3>
+            </div>
+            <CodeBlock code={INSTALL_CODE} label="Terminal" language="bash" />
+          </FadeInSection>
+
+          <FadeInSection delay={0.2}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 text-sm font-bold text-purple-400">2</div>
+              <h3 className="text-lg font-bold text-white">Configure your server</h3>
+            </div>
+            <CodeBlock code={USAGE_CODE} label="server/main.js" language="javascript" />
+          </FadeInSection>
+
+          <FadeInSection delay={0.3}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 text-sm font-bold text-purple-400">3</div>
+              <h3 className="text-lg font-bold text-white">Connect your AI agent</h3>
+            </div>
+            <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
+              <p className="text-sm text-neutral-400 leading-relaxed">
+                Point your MCP client at{' '}
+                <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-2 py-0.5 text-purple-300 font-mono text-xs">
+                  http://localhost:3000/mcp
+                </code>{' '}
+                — agents can now discover and call your methods as tools. Works with Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
+              </p>
+            </div>
+          </FadeInSection>
         </div>
       </div>
     </section>
@@ -198,104 +605,74 @@ const API_OPTIONS = [
 
 function ApiReference() {
   return (
-    <section className="px-6 py-16">
+    <section id="api" className="relative px-6 py-24">
       <div className="mx-auto max-w-4xl">
-        <h2 className="mb-10 text-center text-3xl font-bold text-white">API Reference</h2>
+        <FadeInSection>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+              API Reference
+            </h2>
+            <p className="text-neutral-400 text-lg max-w-xl mx-auto">
+              A simple, intuitive API surface.
+            </p>
+          </div>
+        </FadeInSection>
 
-        <h3 className="mb-4 text-xl font-semibold text-neutral-200">
-          <code className="text-purple-300">Wormhole.init(options)</code>
-        </h3>
-        <div className="overflow-x-auto rounded-lg border border-neutral-800">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-800 bg-neutral-900 text-left">
-                <th className="px-4 py-3 font-medium text-neutral-400">Option</th>
-                <th className="px-4 py-3 font-medium text-neutral-400">Type</th>
-                <th className="px-4 py-3 font-medium text-neutral-400">Default</th>
-                <th className="px-4 py-3 font-medium text-neutral-400">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              {API_OPTIONS.map((row) => (
-                <tr key={row.option} className="border-b border-neutral-800/50">
-                  <td className="px-4 py-3">
-                    <code className="text-purple-300">{row.option}</code>
-                  </td>
-                  <td className="px-4 py-3 text-neutral-400">
-                    <code>{row.type}</code>
-                  </td>
-                  <td className="px-4 py-3 text-neutral-500">
-                    <code>{row.default}</code>
-                  </td>
-                  <td className="px-4 py-3 text-neutral-300">{row.desc}</td>
+        <FadeInSection delay={0.1}>
+          <h3 className="mb-4 text-xl font-bold text-white flex items-center gap-2">
+            <code className="text-purple-400 font-mono">Wormhole.init(options)</code>
+          </h3>
+          <div className="overflow-x-auto rounded-xl glass-card" style={{ cursor: 'default' }}>
+            <table className="api-table w-full text-sm">
+              <thead>
+                <tr className="border-b border-purple-500/10 text-left">
+                  <th className="px-5 py-3.5 font-semibold text-neutral-300">Option</th>
+                  <th className="px-5 py-3.5 font-semibold text-neutral-300">Type</th>
+                  <th className="px-5 py-3.5 font-semibold text-neutral-300">Default</th>
+                  <th className="px-5 py-3.5 font-semibold text-neutral-300">Description</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {API_OPTIONS.map((row) => (
+                  <tr key={row.option} className="border-b border-purple-500/5 transition">
+                    <td className="px-5 py-3.5">
+                      <code className="text-purple-400 font-mono text-xs">{row.option}</code>
+                    </td>
+                    <td className="px-5 py-3.5 text-neutral-400">
+                      <code className="text-xs font-mono">{row.type}</code>
+                    </td>
+                    <td className="px-5 py-3.5 text-neutral-500">
+                      <code className="text-xs font-mono">{row.default}</code>
+                    </td>
+                    <td className="px-5 py-3.5 text-neutral-300 text-xs">{row.desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </FadeInSection>
 
-        <div className="mt-8 space-y-4">
-          <h3 className="text-xl font-semibold text-neutral-200">
-            <code className="text-purple-300">Wormhole.expose(methodName, options)</code>
-          </h3>
-          <p className="text-sm text-neutral-400">
-            Explicitly expose a method as an MCP tool. Pass <code className="rounded bg-neutral-800 px-1 py-0.5 text-purple-300">description</code> and{' '}
-            <code className="rounded bg-neutral-800 px-1 py-0.5 text-purple-300">inputSchema</code> (JSON Schema)
-            for rich tool metadata.
-          </p>
-          <h3 className="text-xl font-semibold text-neutral-200">
-            <code className="text-purple-300">Wormhole.unexpose(methodName)</code>
-          </h3>
-          <p className="text-sm text-neutral-400">Remove a method from MCP exposure.</p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ─── How It Works ───────────────────────────────────────────────────────────────
-
-const STEPS = [
-  {
-    num: '1',
-    title: 'Registration',
-    desc: 'In all-in mode, the package hooks Meteor.methods to intercept every registration. In opt-in mode, call Wormhole.expose() manually.',
-  },
-  {
-    num: '2',
-    title: 'MCP Server',
-    desc: 'A Streamable HTTP MCP server is mounted at the configured path (default /mcp) on Meteor\'s WebApp.',
-  },
-  {
-    num: '3',
-    title: 'Tool Mapping',
-    desc: 'Each exposed Meteor method becomes an MCP tool. Names are sanitized (e.g. todos.add → todos_add).',
-  },
-  {
-    num: '4',
-    title: 'Invocation',
-    desc: 'When an AI agent calls a tool, the bridge invokes the Meteor method via Meteor.callAsync() and returns the result.',
-  },
-];
-
-function HowItWorks() {
-  return (
-    <section className="px-6 py-16">
-      <div className="mx-auto max-w-3xl">
-        <h2 className="mb-10 text-center text-3xl font-bold text-white">How It Works</h2>
-        <div className="space-y-6">
-          {STEPS.map((s) => (
-            <div key={s.num} className="flex gap-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-600/20 text-lg font-bold text-purple-400">
-                {s.num}
-              </div>
-              <div>
-                <h3 className="font-semibold text-white">{s.title}</h3>
-                <p className="text-sm text-neutral-400">{s.desc}</p>
-              </div>
+        <FadeInSection delay={0.2}>
+          <div className="mt-10 space-y-6">
+            <div>
+              <h3 className="text-xl font-bold text-white mb-2">
+                <code className="text-purple-400 font-mono">Wormhole.expose(methodName, options)</code>
+              </h3>
+              <p className="text-sm text-neutral-400 leading-relaxed">
+                Explicitly expose a method as an MCP tool. Pass{' '}
+                <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">description</code> and{' '}
+                <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">inputSchema</code>{' '}
+                (JSON Schema) for rich tool metadata.
+              </p>
             </div>
-          ))}
-        </div>
+            <div>
+              <h3 className="text-xl font-bold text-white mb-2">
+                <code className="text-purple-400 font-mono">Wormhole.unexpose(methodName)</code>
+              </h3>
+              <p className="text-sm text-neutral-400">Remove a method from MCP exposure at runtime.</p>
+            </div>
+          </div>
+        </FadeInSection>
       </div>
     </section>
   );
@@ -306,7 +683,7 @@ function HowItWorks() {
 function McpTester() {
   const [endpoint, setEndpoint] = useState('/mcp');
   const [apiKey, setApiKey] = useState('');
-  const [status, setStatus] = useState('disconnected'); // disconnected | connecting | connected | error
+  const [status, setStatus] = useState('disconnected');
   const [tools, setTools] = useState([]);
   const [logs, setLogs] = useState([]);
   const [selectedTool, setSelectedTool] = useState(null);
@@ -326,13 +703,13 @@ function McpTester() {
 
     const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
 
-    // Capture session ID from response header
     const sid = res.headers.get('mcp-session-id');
     if (sid) sessionIdRef.current = sid;
 
+    if (res.status === 202) return null;
+
     const contentType = res.headers.get('content-type') || '';
     if (contentType.includes('text/event-stream')) {
-      // Parse SSE response
       const text = await res.text();
       const events = text.split('\n').filter(l => l.startsWith('data: ')).map(l => {
         try { return JSON.parse(l.slice(6)); } catch { return null; }
@@ -351,7 +728,6 @@ function McpTester() {
     addLog('info', `Connecting to ${endpoint}...`);
 
     try {
-      // Send initialize request
       const initResult = await makeRequest('POST', endpoint, {
         jsonrpc: '2.0',
         id: 1,
@@ -365,13 +741,11 @@ function McpTester() {
 
       addLog('success', `Connected! Server: ${initResult?.result?.serverInfo?.name || 'unknown'}`);
 
-      // Send initialized notification
       await makeRequest('POST', endpoint, {
         jsonrpc: '2.0',
         method: 'notifications/initialized',
       });
 
-      // List tools
       const toolsResult = await makeRequest('POST', endpoint, {
         jsonrpc: '2.0',
         id: 2,
@@ -433,191 +807,262 @@ function McpTester() {
     }
   }, [selectedTool, toolArgs, endpoint, addLog, makeRequest]);
 
-  const statusColors = {
-    disconnected: 'bg-neutral-600',
-    connecting: 'bg-yellow-500 animate-pulse',
-    connected: 'bg-green-500',
-    error: 'bg-red-500',
+  const resultHighlighted = useMemo(() => {
+    if (!callResult) return '';
+    return hljs.highlight(JSON.stringify(callResult, null, 2), { language: 'json' }).value;
+  }, [callResult]);
+
+  const statusConfig = {
+    disconnected: { color: 'bg-neutral-600', label: 'Disconnected' },
+    connecting: { color: 'bg-yellow-500 animate-pulse', label: 'Connecting...' },
+    connected: { color: 'bg-green-500', label: 'Connected' },
+    error: { color: 'bg-red-500', label: 'Error' },
   };
 
   return (
-    <section id="tester" className="px-6 py-16">
+    <section id="tester" className="relative px-6 py-24">
       <div className="mx-auto max-w-5xl">
-        <h2 className="mb-2 text-center text-3xl font-bold text-white">MCP Tester</h2>
-        <p className="mb-10 text-center text-sm text-neutral-500">
-          Connect to the MCP endpoint running on this app and test your exposed tools live.
-        </p>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Connection Panel */}
-          <div className="space-y-4">
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-              <div className="mb-4 flex items-center gap-2">
-                <div className={`h-2.5 w-2.5 rounded-full ${statusColors[status]}`} />
-                <span className="text-sm font-medium text-neutral-300 capitalize">{status}</span>
-              </div>
-
-              <label className="mb-1 block text-xs font-medium text-neutral-500">Endpoint</label>
-              <input
-                type="text"
-                value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
-                disabled={status === 'connected'}
-                className="mb-3 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500 focus:outline-none disabled:opacity-50"
-                placeholder="/mcp"
-              />
-
-              <label className="mb-1 block text-xs font-medium text-neutral-500">API Key (optional)</label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                disabled={status === 'connected'}
-                className="mb-4 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500 focus:outline-none disabled:opacity-50"
-                placeholder="Bearer token"
-              />
-
-              {status !== 'connected' ? (
-                <button
-                  onClick={handleConnect}
-                  disabled={status === 'connecting'}
-                  className="w-full rounded-lg bg-purple-600 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-500 disabled:opacity-50"
-                >
-                  {status === 'connecting' ? 'Connecting...' : 'Connect'}
-                </button>
-              ) : (
-                <button
-                  onClick={handleDisconnect}
-                  className="w-full rounded-lg border border-neutral-700 py-2.5 text-sm font-semibold text-neutral-300 transition hover:border-red-500 hover:text-red-400"
-                >
-                  Disconnect
-                </button>
-              )}
-            </div>
-
-            {/* Tools List */}
-            {tools.length > 0 && (
-              <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-                <h3 className="mb-3 text-sm font-semibold text-neutral-300">
-                  Available Tools ({tools.length})
-                </h3>
-                <div className="space-y-2">
-                  {tools.map((tool) => (
-                    <button
-                      key={tool.name}
-                      onClick={() => {
-                        setSelectedTool(tool);
-                        setToolArgs('{}');
-                        setCallResult(null);
-                      }}
-                      className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm transition ${
-                        selectedTool?.name === tool.name
-                          ? 'border-purple-500 bg-purple-500/10 text-purple-300'
-                          : 'border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:text-neutral-200'
-                      }`}
-                    >
-                      <span className="font-mono font-medium">{tool.name}</span>
-                      {tool.description && (
-                        <span className="mt-0.5 block text-xs text-neutral-500">{tool.description}</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+        <FadeInSection>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">
+              Live MCP Tester
+            </h2>
+            <p className="text-neutral-400 text-lg max-w-xl mx-auto">
+              Connect to the MCP endpoint and test your exposed tools in real time.
+            </p>
           </div>
+        </FadeInSection>
 
-          {/* Tool Invocation & Results */}
-          <div className="space-y-4">
-            {selectedTool && (
-              <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-                <h3 className="mb-1 text-sm font-semibold text-neutral-300">
-                  Call: <code className="text-purple-300">{selectedTool.name}</code>
-                </h3>
-                {selectedTool.description && (
-                  <p className="mb-3 text-xs text-neutral-500">{selectedTool.description}</p>
-                )}
+        <FadeInSection delay={0.15}>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Connection Panel */}
+            <div className="space-y-4">
+              <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
+                <div className="mb-5 flex items-center gap-2.5">
+                  <motion.div
+                    className={`h-2.5 w-2.5 rounded-full ${statusConfig[status].color}`}
+                    animate={status === 'connected' ? { boxShadow: ['0 0 0 0 rgba(34,197,94,0.4)', '0 0 0 6px rgba(34,197,94,0)', '0 0 0 0 rgba(34,197,94,0.4)'] } : {}}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  <span className="text-sm font-semibold text-neutral-300">{statusConfig[status].label}</span>
+                </div>
 
-                {selectedTool.inputSchema?.properties && (
-                  <div className="mb-3 rounded-lg bg-neutral-800/50 p-3">
-                    <span className="mb-1 block text-xs font-medium text-neutral-500">Expected params:</span>
-                    {Object.entries(selectedTool.inputSchema.properties).map(([key, val]) => (
-                      <div key={key} className="text-xs text-neutral-400">
-                        <code className="text-purple-300">{key}</code>
-                        <span className="text-neutral-600">: {val.type}</span>
-                        {val.description && <span className="text-neutral-500"> — {val.description}</span>}
-                        {selectedTool.inputSchema.required?.includes(key) && (
-                          <span className="ml-1 text-red-400">*</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <label className="mb-1 block text-xs font-medium text-neutral-500">Arguments (JSON)</label>
-                <textarea
-                  value={toolArgs}
-                  onChange={(e) => setToolArgs(e.target.value)}
-                  rows={4}
-                  className="mb-3 w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500 focus:outline-none"
-                  placeholder='{"key": "value"}'
+                <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">Endpoint</label>
+                <input
+                  type="text"
+                  value={endpoint}
+                  onChange={(e) => setEndpoint(e.target.value)}
+                  disabled={status === 'connected'}
+                  className="mb-4 w-full rounded-xl border border-purple-500/10 bg-[var(--space-dark)] px-4 py-2.5 text-sm text-neutral-200 font-mono placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none disabled:opacity-50 transition"
+                  placeholder="/mcp"
                 />
 
-                <button
-                  onClick={handleCallTool}
-                  className="w-full rounded-lg bg-purple-600 py-2.5 text-sm font-semibold text-white transition hover:bg-purple-500"
-                >
-                  Call Tool
-                </button>
-              </div>
-            )}
+                <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">API Key (optional)</label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  disabled={status === 'connected'}
+                  className="mb-5 w-full rounded-xl border border-purple-500/10 bg-[var(--space-dark)] px-4 py-2.5 text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none disabled:opacity-50 transition"
+                  placeholder="Bearer token"
+                />
 
-            {callResult && (
-              <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-                <h3 className="mb-3 text-sm font-semibold text-neutral-300">Result</h3>
-                <pre className="max-h-64 overflow-auto rounded-lg bg-neutral-800 p-3 text-xs leading-relaxed text-neutral-300">
-                  {JSON.stringify(callResult, null, 2)}
-                </pre>
-              </div>
-            )}
-
-            {/* Log Panel */}
-            <div className="rounded-xl border border-neutral-800 bg-neutral-900 p-5">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-neutral-300">Log</h3>
-                {logs.length > 0 && (
-                  <button
-                    onClick={() => setLogs([])}
-                    className="text-xs text-neutral-600 hover:text-neutral-400"
+                {status !== 'connected' ? (
+                  <motion.button
+                    onClick={handleConnect}
+                    disabled={status === 'connecting'}
+                    className="w-full rounded-xl bg-purple-600 py-3 text-sm font-bold text-white transition hover:bg-purple-500 disabled:opacity-50"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
                   >
-                    Clear
-                  </button>
+                    {status === 'connecting' ? 'Connecting...' : 'Connect to MCP'}
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    onClick={handleDisconnect}
+                    className="w-full rounded-xl border border-neutral-700/50 py-3 text-sm font-bold text-neutral-300 transition hover:border-red-500/40 hover:text-red-400"
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                  >
+                    Disconnect
+                  </motion.button>
                 )}
               </div>
-              <div className="max-h-48 space-y-1 overflow-auto font-mono text-xs">
-                {logs.length === 0 && (
-                  <p className="text-neutral-600">No activity yet. Connect to get started.</p>
+
+              {/* Tools List */}
+              <AnimatePresence>
+                {tools.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="glass-card rounded-2xl p-6"
+                    style={{ cursor: 'default' }}
+                  >
+                    <h3 className="mb-3 text-sm font-bold text-neutral-300">
+                      Available Tools <span className="text-purple-400">({tools.length})</span>
+                    </h3>
+                    <div className="space-y-2 max-h-80 overflow-auto">
+                      {tools.map((tool) => (
+                        <motion.button
+                          key={tool.name}
+                          onClick={() => {
+                            setSelectedTool(tool);
+                            setToolArgs('{}');
+                            setCallResult(null);
+                          }}
+                          className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition ${
+                            selectedTool?.name === tool.name
+                              ? 'border-purple-500/50 bg-purple-500/10 text-purple-300'
+                              : 'border-purple-500/5 text-neutral-400 hover:border-purple-500/20 hover:text-neutral-200'
+                          }`}
+                          whileHover={{ x: 4 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <span className="font-mono font-semibold text-xs">{tool.name}</span>
+                          {tool.description && (
+                            <span className="mt-0.5 block text-xs text-neutral-500">{tool.description}</span>
+                          )}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
                 )}
-                {logs.map((log) => (
-                  <div key={log.id} className="flex gap-2">
-                    <span className="shrink-0 text-neutral-600">{log.time}</span>
-                    <span
-                      className={
-                        log.type === 'error'
-                          ? 'text-red-400'
-                          : log.type === 'success'
-                            ? 'text-green-400'
-                            : 'text-neutral-400'
-                      }
+              </AnimatePresence>
+            </div>
+
+            {/* Tool Invocation & Results */}
+            <div className="space-y-4">
+              <AnimatePresence mode="wait">
+                {selectedTool && (
+                  <motion.div
+                    key={selectedTool.name}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="glass-card rounded-2xl p-6"
+                    style={{ cursor: 'default' }}
+                  >
+                    <h3 className="mb-1 text-sm font-bold text-neutral-300">
+                      Call: <code className="text-purple-400 font-mono">{selectedTool.name}</code>
+                    </h3>
+                    {selectedTool.description && (
+                      <p className="mb-4 text-xs text-neutral-500">{selectedTool.description}</p>
+                    )}
+
+                    {selectedTool.inputSchema?.properties && (
+                      <div className="mb-4 rounded-xl bg-purple-500/5 border border-purple-500/10 p-4">
+                        <span className="mb-2 block text-xs font-bold text-neutral-500 uppercase tracking-wider">Parameters</span>
+                        {Object.entries(selectedTool.inputSchema.properties).map(([key, val]) => (
+                          <div key={key} className="text-xs text-neutral-400 py-0.5">
+                            <code className="text-purple-400 font-mono">{key}</code>
+                            <span className="text-neutral-600">: {val.type}</span>
+                            {val.description && <span className="text-neutral-500"> — {val.description}</span>}
+                            {selectedTool.inputSchema.required?.includes(key) && (
+                              <span className="ml-1 text-red-400 text-[10px] font-bold">required</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">Arguments (JSON)</label>
+                    <textarea
+                      value={toolArgs}
+                      onChange={(e) => setToolArgs(e.target.value)}
+                      rows={4}
+                      className="mb-4 w-full rounded-xl border border-purple-500/10 bg-[var(--space-dark)] px-4 py-3 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-purple-500/40 focus:outline-none transition"
+                      placeholder='{"key": "value"}'
+                    />
+
+                    <motion.button
+                      onClick={handleCallTool}
+                      className="w-full rounded-xl bg-purple-600 py-3 text-sm font-bold text-white transition hover:bg-purple-500"
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
                     >
-                      {log.message}
-                    </span>
-                  </div>
-                ))}
+                      Execute Tool
+                    </motion.button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {callResult && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="code-window"
+                  >
+                    <div className="code-window-header">
+                      <div className="code-window-dot bg-red-500/80" />
+                      <div className="code-window-dot bg-yellow-500/80" />
+                      <div className="code-window-dot bg-green-500/80" />
+                      <span className="ml-2 text-xs font-medium text-neutral-500">Result</span>
+                    </div>
+                    <div className="code-window-body max-h-64 overflow-auto">
+                      <pre>
+                        <code
+                          className="hljs language-json"
+                          dangerouslySetInnerHTML={{ __html: resultHighlighted }}
+                        />
+                      </pre>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Log Panel */}
+              <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-neutral-300 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Log
+                  </h3>
+                  {logs.length > 0 && (
+                    <button
+                      onClick={() => setLogs([])}
+                      className="text-xs text-neutral-600 hover:text-neutral-400 transition"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-48 space-y-1 overflow-auto font-mono text-xs">
+                  {logs.length === 0 && (
+                    <p className="text-neutral-600">No activity yet. Connect to get started.</p>
+                  )}
+                  <AnimatePresence initial={false}>
+                    {logs.map((log) => (
+                      <motion.div
+                        key={log.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex gap-2"
+                      >
+                        <span className="shrink-0 text-neutral-600">{log.time}</span>
+                        <span
+                          className={
+                            log.type === 'error'
+                              ? 'text-red-400'
+                              : log.type === 'success'
+                                ? 'text-green-400'
+                                : 'text-neutral-400'
+                          }
+                        >
+                          {log.message}
+                        </span>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        </FadeInSection>
       </div>
     </section>
   );
@@ -627,18 +1072,31 @@ function McpTester() {
 
 function Footer() {
   return (
-    <footer className="border-t border-neutral-800 px-6 py-8 text-center text-sm text-neutral-600">
-      <p>
-        MIT License ·{' '}
-        <a
-          href="https://github.com/wreiske/meteor-wormhole"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-neutral-500 hover:text-neutral-300"
-        >
-          wreiske/meteor-wormhole
-        </a>
-      </p>
+    <footer className="relative border-t border-purple-500/10 px-6 py-12">
+      <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <div className="relative w-6 h-6">
+            <motion.div
+              className="absolute inset-0 rounded-full border border-purple-500/40"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+            />
+            <div className="absolute inset-1.5 rounded-full bg-purple-500/20" />
+          </div>
+          <span className="text-xs font-bold text-neutral-500 tracking-wide">METEOR WORMHOLE</span>
+        </div>
+        <p className="text-sm text-neutral-600">
+          MIT License ·{' '}
+          <a
+            href="https://github.com/wreiske/meteor-wormhole"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-neutral-500 hover:text-purple-400 transition"
+          >
+            wreiske/meteor-wormhole
+          </a>
+        </p>
+      </div>
     </footer>
   );
 }
@@ -647,13 +1105,23 @@ function Footer() {
 
 export function App() {
   return (
-    <div className="min-h-screen">
-      <Hero />
-      <Features />
-      <HowItWorks />
-      <QuickStart />
-      <ApiReference />
-      <McpTester />
+    <div className="relative min-h-screen">
+      <div className="starfield" />
+      <FloatingParticles />
+      <Navbar />
+      <main className="relative z-10">
+        <Hero />
+        <div className="section-divider" />
+        <Features />
+        <div className="section-divider" />
+        <HowItWorks />
+        <div className="section-divider" />
+        <QuickStart />
+        <div className="section-divider" />
+        <ApiReference />
+        <div className="section-divider" />
+        <McpTester />
+      </main>
       <Footer />
     </div>
   );
