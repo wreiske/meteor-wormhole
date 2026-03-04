@@ -1,10 +1,7 @@
 import { Meteor } from 'meteor/meteor';
 import { Random } from 'meteor/random';
-
-const { Client } = Npm.require('@modelcontextprotocol/sdk/dist/cjs/client/index.js');
-const { StreamableHTTPClientTransport } = Npm.require(
-  '@modelcontextprotocol/sdk/dist/cjs/client/streamableHttp.js',
-);
+import { Client } from '@modelcontextprotocol/sdk/client';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 
 /**
  * Manages connections to external MCP servers.

@@ -1,6 +1,7 @@
 import { Meteor } from 'meteor/meteor';
 import { Random } from 'meteor/random';
 import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
+import Portkey from 'portkey-ai';
 import { mcpClients } from './mcp-clients';
 
 // --- Portkey AI client (loaded lazily on first use) ---
@@ -14,8 +15,6 @@ let portkey = null;
  */
 function getPortkeyClient() {
   if (portkey) return portkey;
-
-  const Portkey = Npm.require('portkey-ai').default;
 
   const apiKey = process.env.PORTKEY_API_KEY || Meteor.settings?.portkey?.apiKey || '';
 
