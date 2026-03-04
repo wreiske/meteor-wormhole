@@ -30,6 +30,13 @@ cd "$ROOT_DIR/test-client"
 npm install
 echo "✅ Test client ready"
 
+# Install chat app dependencies
+echo ""
+echo "📦 Installing chat-app dependencies..."
+cd "$ROOT_DIR/apps/chat-app"
+npm install
+echo "✅ Chat app ready"
+
 # Check for Meteor
 echo ""
 if command -v meteor &>/dev/null; then
@@ -51,12 +58,16 @@ echo "1. Start the test app:"
 echo "   cd apps/test-app"
 echo "   METEOR_PACKAGE_DIRS=../../packages $METEOR_CMD"
 echo ""
-echo "2. In another terminal, run the test client:"
+echo "2. Start the chat app:"
+echo "   cd apps/chat-app"
+echo "   PORTKEY_API_KEY=your-key METEOR_PACKAGE_DIRS=../../packages $METEOR_CMD --port 3100"
+echo ""
+echo "3. In another terminal, run the test client:"
 echo "   cd test-client"
 echo "   node index.mjs          # Interactive demo"
 echo "   node index.mjs --test   # Automated tests"
 echo ""
-echo "3. Run package unit tests:"
+echo "4. Run package unit tests:"
 echo "   cd apps/test-app"
 echo "   METEOR_PACKAGE_DIRS=../../packages $METEOR_CMD test-packages ../../packages/meteor-wormhole/"
 echo ""

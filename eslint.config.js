@@ -93,6 +93,7 @@ export default [
       globals: {
         ...globals.node,
         Meteor: 'readonly',
+        Npm: 'readonly',
       },
     },
     rules: {
