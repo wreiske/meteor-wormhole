@@ -1,17 +1,28 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Meteor } from 'meteor/meteor';
 import { marked } from 'marked';
+import { markedHighlight } from 'marked-highlight';
 import DOMPurify from 'dompurify';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github-dark-dimmed.css';
 import { McpServersPanel } from './McpServersPanel';
 import { ProviderConfigPanel } from './ProviderConfigPanel';
 import { useProviderConfig } from './useProviderConfig';
 import { getProvider } from './providers';
 
-// Configure marked for safety — disable HTML passthrough
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
+// Configure marked with syntax highlighting via marked-highlight extension
+marked.use(
+  markedHighlight({
+    langPrefix: 'hljs language-',
+    highlight(code, lang) {
+      if (lang && hljs.getLanguage(lang)) {
+        return hljs.highlight(code, { language: lang }).value;
+      }
+      return hljs.highlightAuto(code).value;
+    },
+  }),
+);
+marked.use({ breaks: true, gfm: true });
 
 /**
  * Format a timestamp for display in the chat.
@@ -744,11 +755,13 @@ export function App() {
               }
               disabled={!configured || sending}
               rows={1}
-              className="flex-1 min-w-0 resize-none rounded-xl bg-white/5 border border-purple-500/15 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 disabled:opacity-50 transition-all"
+              className="flex-1 min-w-0 resize-none rounded-xl bg-white/5 border border-purple-500/15 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 disabled:opacity-50 transition-all overflow-hidden"
               style={{ minHeight: '44px', maxHeight: '120px' }}
               onInput={(e) => {
                 e.target.style.height = 'auto';
-                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                const next = Math.min(e.target.scrollHeight, 120);
+                e.target.style.height = next + 'px';
+                e.target.style.overflowY = e.target.scrollHeight > 120 ? 'auto' : 'hidden';
               }}
             />
 

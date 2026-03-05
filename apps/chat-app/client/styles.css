@@ -300,15 +300,29 @@ pre,
 }
 
 .prose-chat h1 {
-  font-size: 1.25em;
+  font-size: 1.5em;
 }
 
 .prose-chat h2 {
-  font-size: 1.125em;
+  font-size: 1.3em;
 }
 
 .prose-chat h3 {
-  font-size: 1em;
+  font-size: 1.15em;
+}
+
+.prose-chat h4 {
+  font-size: 1.05em;
+}
+
+.prose-chat h5 {
+  font-size: 0.95em;
+}
+
+.prose-chat h6 {
+  font-size: 0.875em;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .prose-chat code {
@@ -328,6 +342,12 @@ pre,
   margin: 0.5em 0;
   overflow-x: auto;
   font-size: 0.875em;
+}
+
+/* Override highlight.js theme background to use our own */
+.prose-chat pre code.hljs {
+  background: transparent;
+  padding: 0;
 }
 
 .prose-chat pre code {
