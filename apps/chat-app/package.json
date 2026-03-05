@@ -1,0 +1,39 @@
+{
+  "name": "meteor-wormhole-chat-app",
+  "private": true,
+  "scripts": {
+    "start": "METEOR_PACKAGE_DIRS=../../packages meteor --port 3100",
+    "test-packages": "METEOR_PACKAGE_DIRS=../../packages meteor test-packages ../../packages/meteor-wormhole/"
+  },
+  "meteor": {
+    "mainModule": {
+      "client": "client/main.jsx",
+      "server": "server/main.js"
+    }
+  },
+  "devDependencies": {
+    "@meteorjs/rspack": "^1.0.0",
+    "@rsdoctor/rspack-plugin": "^1.2.3",
+    "@rspack/cli": "^1.7.1",
+    "@rspack/core": "^1.7.1",
+    "@rspack/plugin-react-refresh": "^1.6.1",
+    "@tailwindcss/postcss": "^4.2.1",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.6",
+    "postcss-loader": "^8.2.1",
+    "react-refresh": "^0.17.0",
+    "tailwindcss": "^4.2.1"
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.28.6",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "@swc/helpers": "^0.5.17",
+    "dompurify": "^3.3.1",
+    "marked": "^17.0.4",
+    "meteor-node-stubs": "^1.2.27",
+    "openai": "^4",
+    "portkey-ai": "^1.0.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
+  }
+}
