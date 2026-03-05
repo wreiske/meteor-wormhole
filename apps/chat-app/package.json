@@ -28,7 +28,10 @@
     "@babel/runtime": "^7.28.6",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@swc/helpers": "^0.5.17",
+    "dompurify": "^3.3.1",
+    "marked": "^17.0.4",
     "meteor-node-stubs": "^1.2.27",
+    "openai": "^4",
     "portkey-ai": "^1.0.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

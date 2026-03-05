@@ -1,7 +1,9 @@
 import { Meteor } from 'meteor/meteor';
 import { Random } from 'meteor/random';
+import { WebApp } from 'meteor/webapp';
 import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
 import Portkey from 'portkey-ai';
+import OpenAI from 'openai';
 import { mcpClients } from './mcp-clients';
 
 // --- Portkey AI client (loaded lazily on first use) ---
@@ -38,6 +40,43 @@ function getPortkeyClient() {
 
   portkey = new Portkey(opts);
   return portkey;
+}
+
+/**
+ * Create a one-time AI client from user-provided configuration.
+ * The client is used for a single request and then discarded.
+ * API keys are never stored or logged.
+ * @param {object} providerConfig - User's provider configuration
+ * @param {string} providerConfig.provider - Provider ID
+ * @param {string} providerConfig.apiKey - Provider API key
+ * @param {string} providerConfig.baseUrl - API base URL
+ * @param {boolean} [providerConfig.usePortkey] - Whether to route through Portkey
+ * @param {string} [providerConfig.portkeyApiKey] - Portkey API key (if using gateway)
+ * @returns {object} OpenAI-compatible client
+ * @throws {Meteor.Error} If configuration is invalid
+ */
+function createClientFromConfig(providerConfig) {
+  if (!providerConfig?.apiKey) {
+    throw new Meteor.Error('invalid-config', 'Provider API key is required');
+  }
+  if (!providerConfig?.baseUrl) {
+    throw new Meteor.Error('invalid-config', 'Provider base URL is required');
+  }
+
+  // Portkey gateway mode: route through Portkey with provider credentials
+  if (providerConfig.usePortkey && providerConfig.portkeyApiKey) {
+    return new Portkey({
+      apiKey: providerConfig.portkeyApiKey,
+      provider: providerConfig.provider,
+      Authorization: `Bearer ${providerConfig.apiKey}`,
+    });
+  }
+
+  // Direct provider mode: call provider API directly via OpenAI SDK
+  return new OpenAI({
+    apiKey: providerConfig.apiKey,
+    baseURL: providerConfig.baseUrl,
+  });
 }
 
 // --- In-memory conversation store ---
@@ -121,18 +160,69 @@ Wormhole.expose('chat.status', {
   description: 'Get the chat system status including conversation count and configuration',
 });
 
+Wormhole.expose('chat.new', {
+  description: 'Create a new empty conversation and return its ID',
+});
+
+Wormhole.expose('mcpServers.add', {
+  description: 'Connect to an external MCP server by name and URL',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: 'Display name for the server (e.g. "huggingface")' },
+      url: {
+        type: 'string',
+        description: 'MCP endpoint URL (e.g. "https://huggingface.co/mcp")',
+      },
+      headers: {
+        type: 'object',
+        description: 'Optional HTTP headers such as { Authorization: "Bearer ..." }',
+      },
+    },
+    required: ['name', 'url'],
+  },
+});
+
+Wormhole.expose('mcpServers.remove', {
+  description: 'Disconnect and remove an external MCP server',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', description: 'Server ID to remove' },
+    },
+    required: ['id'],
+  },
+});
+
+Wormhole.expose('mcpServers.reconnect', {
+  description: 'Reconnect to a previously failed MCP server',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      id: { type: 'string', description: 'Server ID to reconnect' },
+    },
+    required: ['id'],
+  },
+});
+
+Wormhole.expose('mcpServers.list', {
+  description: 'List all configured MCP servers and their connection status, tools, and errors',
+});
+
 // --- Meteor Methods ---
 
 Meteor.methods({
   /**
    * Send a message and get an AI response.
    * Includes tool definitions from connected MCP servers and handles tool-call loops.
+   * Accepts optional providerConfig for per-request client creation (keys are never stored).
    * @param {object} params
    * @param {string} [params.conversationId] - Optional conversation ID
    * @param {string} params.message - User message
+   * @param {object} [params.providerConfig] - Client-side provider config (API key, model, etc.)
    * @returns {object} The AI response with conversationId and message data
    */
-  async 'chat.send'({ conversationId, message }) {
+  async 'chat.send'({ conversationId, message, providerConfig }) {
     if (!message || typeof message !== 'string' || !message.trim()) {
       throw new Meteor.Error('invalid-message', 'Message must be a non-empty string');
     }
@@ -163,12 +253,24 @@ Meteor.methods({
     ];
 
     try {
-      const client = getPortkeyClient();
+      // Use per-request client from user config, or fall back to server-side Portkey
+      const client = providerConfig ? createClientFromConfig(providerConfig) : getPortkeyClient();
 
       const requestOpts = {
         messages: aiMessages,
-        max_tokens: 2048,
       };
+
+      // OpenAI requires max_completion_tokens; other providers use max_tokens
+      if (providerConfig?.useMaxCompletionTokens) {
+        requestOpts.max_completion_tokens = 2048;
+      } else {
+        requestOpts.max_tokens = 2048;
+      }
+
+      // Use model from client config, or let Portkey pick the default
+      if (providerConfig?.model) {
+        requestOpts.model = providerConfig.model;
+      }
 
       // Include tool definitions if any MCP servers are connected
       if (mcpTools.length > 0) {
@@ -375,6 +477,9 @@ Meteor.methods({
    * @returns {Promise<object>} Server connection info
    */
   async 'mcpServers.add'({ name, url, headers }) {
+    if (!name || !url) {
+      throw new Meteor.Error('invalid-args', 'name and url are required');
+    }
     return mcpClients.add({ name, url, headers });
   },
 
@@ -409,6 +514,239 @@ Meteor.methods({
   'mcpServers.list'() {
     return mcpClients.list();
   },
+});
+
+// --- Streaming SSE Endpoint ---
+
+/**
+ * SSE endpoint for streaming AI chat responses.
+ * POST /api/chat/stream with JSON body containing conversationId, message, providerConfig.
+ * Streams back SSE events: chunk, tool_call, done, error.
+ */
+WebApp.connectHandlers.use('/api/chat/stream', async (req, res) => {
+  // Only accept POST
+  if (req.method !== 'POST') {
+    res.writeHead(405, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Method not allowed' }));
+    return;
+  }
+
+  // Parse request body
+  let body;
+  try {
+    body = await new Promise((resolve, reject) => {
+      let data = '';
+      req.on('data', (chunk) => {
+        data += chunk;
+        // Limit body size to 1MB to prevent abuse
+        if (data.length > 1_048_576) {
+          reject(new Error('Request body too large'));
+        }
+      });
+      req.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch {
+          reject(new Error('Invalid JSON'));
+        }
+      });
+      req.on('error', reject);
+    });
+  } catch (err) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: err.message }));
+    return;
+  }
+
+  const { conversationId, message, providerConfig } = body;
+
+  if (!message || typeof message !== 'string' || !message.trim()) {
+    res.writeHead(400, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Message must be a non-empty string' }));
+    return;
+  }
+
+  // Disable compression so chunks are sent immediately
+  req.headers['accept-encoding'] = 'identity';
+
+  // Set up SSE headers
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+    'Content-Encoding': 'identity',
+    'X-Accel-Buffering': 'no',
+  });
+
+  /** Send an SSE event to the client and flush immediately */
+  const sendEvent = (event, data) => {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (typeof res.flush === 'function') res.flush();
+  };
+
+  try {
+    const convId = conversationId || Random.id();
+    const conversation = getConversation(convId);
+
+    // Add user message
+    const userMessage = {
+      id: Random.id(),
+      role: 'user',
+      content: message.trim(),
+      timestamp: new Date(),
+    };
+    conversation.messages.push(userMessage);
+    conversation.updatedAt = new Date();
+
+    sendEvent('user_message', { conversationId: convId, userMessage });
+
+    // Gather tools from connected MCP servers
+    const mcpTools = mcpClients.getAllTools();
+
+    // Build messages for the AI
+    const aiMessages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...conversation.messages.map((m) => ({ role: m.role, content: m.content })),
+    ];
+
+    const client = providerConfig ? createClientFromConfig(providerConfig) : getPortkeyClient();
+
+    const requestOpts = { messages: aiMessages };
+
+    if (providerConfig?.useMaxCompletionTokens) {
+      requestOpts.max_completion_tokens = 2048;
+    } else {
+      requestOpts.max_tokens = 2048;
+    }
+
+    if (providerConfig?.model) {
+      requestOpts.model = providerConfig.model;
+    }
+
+    if (mcpTools.length > 0) {
+      requestOpts.tools = mcpTools.map((t) => ({ type: t.type, function: t.function }));
+    }
+
+    // Tool-calling loop with streaming
+    const MAX_TOOL_ROUNDS = 10;
+    let rounds = 0;
+    let fullContent = '';
+    let modelName = 'unknown';
+    const toolsUsed = [];
+    let aborted = false;
+
+    req.on('close', () => {
+      aborted = true;
+    });
+
+    while (rounds < MAX_TOOL_ROUNDS && !aborted) {
+      rounds++;
+
+      // Use streaming for the AI call
+      const stream = await client.chat.completions.create({ ...requestOpts, stream: true });
+
+      let chunkContent = '';
+      let toolCalls = [];
+      let finishReason = null;
+
+      for await (const chunk of stream) {
+        if (aborted) break;
+        const delta = chunk.choices?.[0]?.delta;
+        finishReason = chunk.choices?.[0]?.finish_reason || finishReason;
+        modelName = chunk.model || modelName;
+
+        // Stream text content
+        if (delta?.content) {
+          chunkContent += delta.content;
+          fullContent += delta.content;
+          sendEvent('chunk', { text: delta.content });
+        }
+
+        // Accumulate tool calls
+        if (delta?.tool_calls) {
+          for (const tc of delta.tool_calls) {
+            if (tc.index !== undefined) {
+              if (!toolCalls[tc.index]) {
+                toolCalls[tc.index] = {
+                  id: tc.id || '',
+                  type: 'function',
+                  function: { name: '', arguments: '' },
+                };
+              }
+              if (tc.id) toolCalls[tc.index].id = tc.id;
+              if (tc.function?.name) toolCalls[tc.index].function.name += tc.function.name;
+              if (tc.function?.arguments)
+                toolCalls[tc.index].function.arguments += tc.function.arguments;
+            }
+          }
+        }
+      }
+
+      // Filter out incomplete tool calls
+      toolCalls = toolCalls.filter((tc) => tc && tc.id && tc.function.name);
+
+      // Handle tool calls
+      if ((finishReason === 'tool_calls' || toolCalls.length > 0) && !aborted) {
+        requestOpts.messages.push({
+          role: 'assistant',
+          content: chunkContent || null,
+          tool_calls: toolCalls,
+        });
+
+        for (const toolCall of toolCalls) {
+          const sep = toolCall.function.name.indexOf('__');
+          const shortName =
+            sep !== -1 ? toolCall.function.name.slice(sep + 2) : toolCall.function.name;
+          toolsUsed.push(shortName);
+          sendEvent('tool_call', { name: shortName, fullName: toolCall.function.name });
+
+          let toolResult;
+          try {
+            const args = JSON.parse(toolCall.function.arguments || '{}');
+            const mcpResult = await mcpClients.callTool(toolCall.function.name, args);
+            toolResult =
+              mcpResult.content?.map((c) => c.text || JSON.stringify(c)).join('\n') || 'No result';
+          } catch (err) {
+            toolResult = `Error: ${err.message || 'Tool call failed'}`;
+          }
+
+          requestOpts.messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: toolResult,
+          });
+        }
+
+        continue;
+      }
+
+      // No more tool calls — we're done
+      break;
+    }
+
+    if (aborted) {
+      res.end();
+      return;
+    }
+
+    // Save assistant message to conversation
+    const assistantMessage = {
+      id: Random.id(),
+      role: 'assistant',
+      content: fullContent || 'No response generated.',
+      timestamp: new Date(),
+      model: modelName,
+      toolsUsed: toolsUsed.length > 0 ? toolsUsed : undefined,
+    };
+    conversation.messages.push(assistantMessage);
+    conversation.updatedAt = new Date();
+
+    sendEvent('done', { assistantMessage });
+    res.end();
+  } catch (error) {
+    sendEvent('error', { message: error.message || 'Failed to get AI response' });
+    res.end();
+  }
 });
 
 // --- Startup ---

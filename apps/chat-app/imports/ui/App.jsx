@@ -1,6 +1,17 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Meteor } from 'meteor/meteor';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { McpServersPanel } from './McpServersPanel';
+import { ProviderConfigPanel } from './ProviderConfigPanel';
+import { useProviderConfig } from './useProviderConfig';
+import { getProvider } from './providers';
+
+// Configure marked for safety — disable HTML passthrough
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
 
 /**
  * Format a timestamp for display in the chat.
@@ -12,69 +23,13 @@ function formatTime(date) {
 }
 
 /**
- * Render markdown-lite content: code blocks, inline code, bold, italic.
- * @param {string} text
- * @returns {Array<React.ReactNode>}
+ * Render markdown content as sanitized HTML.
+ * @param {string} text - Raw markdown text
+ * @returns {string} Sanitized HTML string
  */
-function renderContent(text) {
-  const parts = [];
-  const codeBlockRegex = /```(\w*)\n?([\s\S]*?)```/g;
-  let lastIndex = 0;
-  let match;
-
-  while ((match = codeBlockRegex.exec(text)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(renderInline(text.slice(lastIndex, match.index), parts.length));
-    }
-    parts.push(
-      <pre
-        key={`code-${parts.length}`}
-        className="my-2 rounded-lg bg-black/40 p-3 text-sm overflow-x-auto border border-purple-500/10"
-      >
-        <code>{match[2]}</code>
-      </pre>,
-    );
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (lastIndex < text.length) {
-    parts.push(renderInline(text.slice(lastIndex), parts.length));
-  }
-
-  return parts;
-}
-
-/**
- * Render inline formatting: `code`, **bold**, *italic*.
- * @param {string} text
- * @param {number} keyBase
- * @returns {React.ReactNode}
- */
-function renderInline(text, keyBase) {
-  const segments = text.split(/(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*)/g);
-  return (
-    <span key={`inline-${keyBase}`}>
-      {segments.map((seg, i) => {
-        if (seg.startsWith('`') && seg.endsWith('`')) {
-          return (
-            <code
-              key={i}
-              className="rounded bg-purple-500/15 px-1.5 py-0.5 text-sm text-purple-300"
-            >
-              {seg.slice(1, -1)}
-            </code>
-          );
-        }
-        if (seg.startsWith('**') && seg.endsWith('**')) {
-          return <strong key={i}>{seg.slice(2, -2)}</strong>;
-        }
-        if (seg.startsWith('*') && seg.endsWith('*')) {
-          return <em key={i}>{seg.slice(1, -1)}</em>;
-        }
-        return seg;
-      })}
-    </span>
-  );
+function renderMarkdown(text) {
+  const rawHtml = marked.parse(text);
+  return DOMPurify.sanitize(rawHtml);
 }
 
 /** Typing indicator dots */
@@ -109,7 +64,7 @@ function ChatMessage({ message }) {
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`max-w-[75%] ${isUser ? 'order-2' : 'order-1'}`}>
+      <div className={`max-w-[85%] sm:max-w-[75%] ${isUser ? 'order-2' : 'order-1'}`}>
         {/* Avatar + Name */}
         <div className={`flex items-center gap-2 mb-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
           <div
@@ -129,16 +84,25 @@ function ChatMessage({ message }) {
         <div
           className={`rounded-2xl px-4 py-3 ${
             isUser ? 'bubble-user rounded-tr-sm' : 'bubble-assistant rounded-tl-sm'
-          }`}
+          } ${message.streaming ? 'streaming-bubble' : ''}`}
         >
-          <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-            {renderContent(message.content)}
-          </div>
+          <div
+            className="prose-chat text-sm leading-relaxed break-words"
+            dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}
+          />
+          {message.streaming && <span className="streaming-cursor" />}
         </div>
 
+        {/* Tool usage indicator during streaming */}
+        {message.streaming && message.toolsUsed?.length > 0 && (
+          <p className="text-[10px] text-purple-400 mt-1 px-1 stream-fade-in">
+            Using tools: {message.toolsUsed.join(', ')}...
+          </p>
+        )}
+
         {/* Model info for assistant messages */}
-        {isAssistant && message.model && (
-          <p className="text-[10px] text-slate-600 mt-1 px-1">
+        {isAssistant && !message.streaming && message.model && (
+          <p className="text-[10px] text-slate-600 mt-1 px-1 stream-fade-in">
             {message.model}
             {message.usage && ` · ${message.usage.total_tokens} tokens`}
             {message.toolsUsed?.length > 0 && (
@@ -195,12 +159,115 @@ export function App() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.innerWidth >= 768);
   const [status, setStatus] = useState(null);
   const [mcpPanelOpen, setMcpPanelOpen] = useState(false);
+  const [configPanelOpen, setConfigPanelOpen] = useState(false);
+
+  const {
+    config,
+    setConfig,
+    clearAll,
+    isConfigured: providerConfigured,
+    getRequestConfig,
+  } = useProviderConfig();
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const controllerRef = useRef(null);
+
+  /** Handle a single SSE event from the streaming endpoint */
+  const handleStreamEvent = useCallback((event, data, streamMsgId, tempUserMsgId) => {
+    switch (event) {
+      case 'user_message':
+        // Replace optimistic user message with the server-confirmed one
+        if (data.conversationId) {
+          setActiveConvId((prev) => prev || data.conversationId);
+        }
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempUserMsgId ? { ...data.userMessage, id: tempUserMsgId } : m,
+          ),
+        );
+        break;
+
+      case 'chunk':
+        // Create assistant message on first chunk, then append text
+        setMessages((prev) => {
+          const exists = prev.some((m) => m.id === streamMsgId);
+          if (!exists) {
+            return [
+              ...prev,
+              {
+                id: streamMsgId,
+                role: 'assistant',
+                content: data.text,
+                timestamp: new Date(),
+                streaming: true,
+                toolsUsed: [],
+              },
+            ];
+          }
+          return prev.map((m) =>
+            m.id === streamMsgId ? { ...m, content: m.content + data.text } : m,
+          );
+        });
+        break;
+
+      case 'tool_call':
+        // Show which tool is being used — create message if it doesn't exist yet
+        setMessages((prev) => {
+          const exists = prev.some((m) => m.id === streamMsgId);
+          if (!exists) {
+            return [
+              ...prev,
+              {
+                id: streamMsgId,
+                role: 'assistant',
+                content: '',
+                timestamp: new Date(),
+                streaming: true,
+                toolsUsed: [data.name],
+              },
+            ];
+          }
+          return prev.map((m) =>
+            m.id === streamMsgId ? { ...m, toolsUsed: [...(m.toolsUsed || []), data.name] } : m,
+          );
+        });
+        break;
+
+      case 'done':
+        // Finalize the assistant message with full metadata
+        setMessages((prev) => {
+          const exists = prev.some((m) => m.id === streamMsgId);
+          if (!exists) {
+            return [...prev, { ...data.assistantMessage, streaming: false }];
+          }
+          return prev.map((m) =>
+            m.id === streamMsgId ? { ...data.assistantMessage, streaming: false } : m,
+          );
+        });
+        break;
+
+      case 'error':
+        setMessages((prev) => {
+          const errorMsg = {
+            id: streamMsgId,
+            role: 'system',
+            content: data.message || 'An error occurred',
+            streaming: false,
+            isError: true,
+          };
+          const exists = prev.some((m) => m.id === streamMsgId);
+          if (!exists) {
+            return [...prev, errorMsg];
+          }
+          return prev.map((m) => (m.id === streamMsgId ? { ...m, ...errorMsg } : m));
+        });
+        break;
+    }
+  }, []);
 
   /** Scroll chat to bottom */
   const scrollToBottom = useCallback(() => {
@@ -219,12 +286,14 @@ export function App() {
     Meteor.call('chat.list', (err, result) => {
       if (!err && result) {
         setConversations(
-          result.map((c) => ({
-            id: c.id,
-            preview: c.lastMessage || 'New conversation',
-            messageCount: c.messageCount,
-            updatedAt: c.updatedAt,
-          })),
+          result
+            .map((c) => ({
+              id: c.id,
+              preview: c.lastMessage || 'New conversation',
+              messageCount: c.messageCount,
+              updatedAt: c.updatedAt,
+            }))
+            .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)),
         );
       }
     });
@@ -265,6 +334,9 @@ export function App() {
         setActiveConvId(result.conversationId);
         setMessages([]);
         loadConversations();
+        if (window.innerWidth < 768) {
+          setSidebarOpen(false);
+        }
       }
     });
   }, [loadConversations]);
@@ -274,11 +346,15 @@ export function App() {
     (convId) => {
       setActiveConvId(convId);
       loadMessages(convId);
+      // Close sidebar on mobile after selecting
+      if (window.innerWidth < 768) {
+        setSidebarOpen(false);
+      }
     },
     [loadMessages],
   );
 
-  /** Send a message */
+  /** Send a message via streaming SSE endpoint */
   const handleSend = useCallback(() => {
     const text = input.trim();
     if (!text || sending) return;
@@ -295,37 +371,89 @@ export function App() {
     };
     setMessages((prev) => [...prev, tempUserMsg]);
 
-    Meteor.call('chat.send', { conversationId: activeConvId, message: text }, (err, result) => {
-      setSending(false);
+    // ID for the assistant message — created lazily on first chunk
+    const streamMsgId = `stream-${Date.now()}`;
 
-      if (err) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `err-${Date.now()}`,
-            role: 'system',
-            content: err.reason || err.message || 'Failed to send message',
-            timestamp: new Date(),
-            isError: true,
-          },
-        ]);
-        return;
-      }
+    // Start streaming fetch
+    const controller = new AbortController();
 
-      // Update conversation ID if this was a new conversation
-      if (result.conversationId && result.conversationId !== activeConvId) {
-        setActiveConvId(result.conversationId);
-      }
+    fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        conversationId: activeConvId,
+        message: text,
+        providerConfig: getRequestConfig(),
+      }),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({ error: 'Stream failed' }));
+          throw new Error(err.error || 'Stream failed');
+        }
 
-      // Replace optimistic messages with server response
-      setMessages((prev) => {
-        const filtered = prev.filter((m) => m.id !== tempUserMsg.id);
-        return [...filtered, result.userMessage, result.assistantMessage];
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete SSE blocks (separated by double newlines)
+          let boundary;
+          while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+            const block = buffer.slice(0, boundary);
+            buffer = buffer.slice(boundary + 2);
+
+            let eventType = null;
+            let eventData = null;
+            for (const line of block.split('\n')) {
+              if (line.startsWith('event: ')) {
+                eventType = line.slice(7);
+              } else if (line.startsWith('data: ')) {
+                eventData = line.slice(6);
+              }
+            }
+
+            if (eventType && eventData) {
+              try {
+                const data = JSON.parse(eventData);
+                handleStreamEvent(eventType, data, streamMsgId, tempUserMsg.id);
+              } catch {
+                // Ignore malformed SSE data
+              }
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        if (err.name === 'AbortError') return;
+        // Add or replace the streaming message with an error
+        const errorMsg = {
+          id: streamMsgId,
+          role: 'system',
+          content: err.message || 'Failed to send message',
+          streaming: false,
+          isError: true,
+        };
+        setMessages((prev) => {
+          const exists = prev.some((m) => m.id === streamMsgId);
+          if (!exists) return [...prev, errorMsg];
+          return prev.map((m) => (m.id === streamMsgId ? { ...m, ...errorMsg } : m));
+        });
+      })
+      .finally(() => {
+        setSending(false);
+        loadConversations();
       });
 
-      loadConversations();
-    });
-  }, [input, sending, activeConvId, loadConversations]);
+    // Store controller ref for potential cancellation
+    controllerRef.current = controller;
+  }, [input, sending, activeConvId, loadConversations, getRequestConfig, handleStreamEvent]);
 
   /** Handle Enter key */
   const handleKeyDown = useCallback(
@@ -350,18 +478,29 @@ export function App() {
     });
   }, [activeConvId, loadConversations]);
 
-  const configured = status?.configured;
+  const configured = providerConfigured || status?.configured;
+  const activeProviderDef = getProvider(config.activeProvider);
 
   return (
-    <div className="flex h-screen relative">
+    <div className="flex h-[100dvh] relative">
       {/* Starfield background */}
       <div className="starfield" />
+
+      {/* Mobile sidebar backdrop */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* Sidebar */}
       <div
         className={`${
-          sidebarOpen ? 'w-72' : 'w-0'
-        } transition-all duration-300 overflow-hidden relative z-10 flex-shrink-0`}
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0 md:w-0'
+        } fixed md:relative inset-y-0 left-0 w-72 md:w-72 z-30 md:z-10 transition-all duration-300 flex-shrink-0 ${
+          !sidebarOpen ? 'md:overflow-hidden' : ''
+        }`}
       >
         <div className="glass-panel h-full flex flex-col border-r border-purple-500/10">
           {/* Sidebar header */}
@@ -421,8 +560,28 @@ export function App() {
               <div
                 className={`w-1.5 h-1.5 rounded-full ${configured ? 'bg-green-400' : 'bg-red-400'}`}
               />
-              {configured ? 'Portkey connected' : 'Portkey not configured'}
+              {providerConfigured
+                ? `${activeProviderDef?.name || config.activeProvider} · ${config.model}`
+                : configured
+                  ? 'Portkey connected'
+                  : 'Not configured'}
             </div>
+            {providerConfigured && (
+              <button
+                onClick={() => setConfigPanelOpen(true)}
+                className="mt-1 text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                Change provider
+              </button>
+            )}
+            {!providerConfigured && !configured && (
+              <button
+                onClick={() => setConfigPanelOpen(true)}
+                className="mt-1 text-yellow-400 hover:text-yellow-300 transition-colors"
+              >
+                Configure provider
+              </button>
+            )}
             {status && (
               <p className="mt-1">
                 {status.conversationCount} conversation{status.conversationCount !== 1 ? 's' : ''}
@@ -465,12 +624,40 @@ export function App() {
             </svg>
           </button>
 
-          <div className="flex-1">
-            <h2 className="text-sm font-semibold text-white">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-sm font-semibold text-white truncate">
               {activeConvId ? 'Chat' : 'Wormhole Chat'}
             </h2>
-            <p className="text-[10px] text-slate-500">AI-powered chat via Portkey + MCP</p>
+            <p className="text-[10px] text-slate-500 truncate hidden sm:block">
+              AI-powered chat via Portkey + MCP
+            </p>
           </div>
+
+          {/* AI Provider config button */}
+          <button
+            onClick={() => setConfigPanelOpen(true)}
+            className={`p-1.5 rounded-lg hover:bg-white/5 transition-colors relative ${
+              providerConfigured ? 'text-purple-300' : 'text-yellow-400 animate-pulse'
+            }`}
+            title="AI Provider Settings"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+              />
+            </svg>
+            {providerConfigured && (
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400" />
+            )}
+          </button>
 
           {/* MCP Servers button */}
           <button
@@ -524,7 +711,11 @@ export function App() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 py-6">
           {!activeConvId && messages.length === 0 ? (
-            <WelcomeScreen onNewChat={handleNewConversation} configured={configured} />
+            <WelcomeScreen
+              onNewChat={handleNewConversation}
+              configured={configured}
+              onConfigureProvider={() => setConfigPanelOpen(true)}
+            />
           ) : messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-slate-600 text-sm">Send a message to start chatting</p>
@@ -534,44 +725,40 @@ export function App() {
               {messages.map((msg) => (
                 <ChatMessage key={msg.id} message={msg} />
               ))}
-              {sending && <TypingIndicator />}
+              {sending && !messages.some((m) => m.streaming) && <TypingIndicator />}
               <div ref={messagesEndRef} />
             </>
           )}
         </div>
 
         {/* Input */}
-        <div className="glass-panel border-t border-purple-500/10 p-4">
-          <div className="flex items-end gap-3 max-w-4xl mx-auto">
-            <div className="flex-1 relative">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  configured
-                    ? 'Type a message... (Enter to send, Shift+Enter for new line)'
-                    : 'Configure Portkey API key to start chatting...'
-                }
-                disabled={!configured || sending}
-                rows={1}
-                className="w-full resize-none rounded-xl bg-white/5 border border-purple-500/15 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 disabled:opacity-50 transition-all"
-                style={{ minHeight: '44px', maxHeight: '120px' }}
-                onInput={(e) => {
-                  e.target.style.height = 'auto';
-                  e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                }}
-              />
-            </div>
+        <div className="glass-panel border-t border-purple-500/10 p-3 sm:p-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="flex items-end gap-2 sm:gap-3 max-w-4xl mx-auto">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={
+                configured ? 'Type a message...' : 'Configure a provider to start chatting...'
+              }
+              disabled={!configured || sending}
+              rows={1}
+              className="flex-1 min-w-0 resize-none rounded-xl bg-white/5 border border-purple-500/15 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/40 focus:ring-1 focus:ring-purple-500/20 disabled:opacity-50 transition-all"
+              style={{ minHeight: '44px', maxHeight: '120px' }}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+              }}
+            />
 
             <button
               onClick={handleSend}
               disabled={!input.trim() || sending || !configured}
-              className={`p-3 rounded-xl transition-all ${
+              className={`flex items-center justify-center shrink-0 rounded-xl p-3 border transition-all ${
                 input.trim() && !sending && configured
-                  ? 'bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-300 pulse-ring'
-                  : 'bg-white/5 border border-white/10 text-slate-600 cursor-not-allowed'
+                  ? 'bg-purple-500/20 hover:bg-purple-500/30 border-purple-500/30 text-purple-300 pulse-ring'
+                  : 'bg-white/5 border-white/10 text-slate-600 cursor-not-allowed'
               }`}
             >
               {sending ? (
@@ -611,12 +798,21 @@ export function App() {
       </div>
       {/* MCP Servers panel */}
       <McpServersPanel open={mcpPanelOpen} onClose={() => setMcpPanelOpen(false)} />
+      {/* Provider config panel */}
+      <ProviderConfigPanel
+        open={configPanelOpen}
+        onClose={() => setConfigPanelOpen(false)}
+        config={config}
+        setConfig={setConfig}
+        clearAll={clearAll}
+        isConfigured={providerConfigured}
+      />
     </div>
   );
 }
 
 /** Welcome screen shown when no conversation is active */
-function WelcomeScreen({ onNewChat, configured }) {
+function WelcomeScreen({ onNewChat, configured, onConfigureProvider }) {
   return (
     <div className="flex items-center justify-center h-full">
       <div className="text-center max-w-lg">
@@ -639,30 +835,42 @@ function WelcomeScreen({ onNewChat, configured }) {
 
         <h2 className="text-2xl font-bold gradient-text mb-3">Wormhole Chat</h2>
         <p className="text-slate-400 text-sm mb-6 leading-relaxed">
-          Bi-directional AI chat powered by <span className="text-purple-300">Portkey</span> and{' '}
-          <span className="text-cyan-300">MCP</span>.
+          Bi-directional AI chat powered by <span className="text-cyan-300">MCP</span>.
           <br />
           Supports any AI provider — OpenAI, Anthropic, Google, and more.
         </p>
 
         {!configured && (
           <div className="glass-panel rounded-xl p-4 mb-6 text-left">
-            <h3 className="text-sm font-semibold text-yellow-300 mb-2">Setup Required</h3>
+            <h3 className="text-sm font-semibold text-yellow-300 mb-2">Setup Your AI Provider</h3>
             <p className="text-xs text-slate-400 mb-3">
-              Set your Portkey API key to start chatting:
+              Choose your AI provider and enter your API key. Your keys are stored only in your
+              browser and are never saved on the server.
             </p>
-            <pre className="text-xs bg-black/30 rounded-lg p-3 text-slate-300 overflow-x-auto">
-              <code>PORTKEY_API_KEY=your-key meteor --port 3100</code>
-            </pre>
-            <p className="text-[10px] text-slate-600 mt-2">
-              Or add <code className="text-purple-300">portkey.apiKey</code> to your{' '}
-              <code className="text-purple-300">settings.json</code>
-            </p>
+            <button
+              onClick={onConfigureProvider}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/20 hover:border-purple-500/40 transition-all text-sm text-purple-300 font-medium"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={1.5}
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z"
+                />
+              </svg>
+              Configure AI Provider
+            </button>
           </div>
         )}
 
         {/* Feature cards */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
           <div className="glass-panel rounded-xl p-3">
             <div className="text-purple-400 mb-1">
               <svg
