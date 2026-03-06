@@ -71,9 +71,9 @@ function FloatingParticles() {
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
       {PARTICLES.map((p) => (
-        <motion.div
+        <div
           key={p.id}
-          className="absolute rounded-full"
+          className="absolute rounded-full particle-float"
           style={{
             left: `${p.x}%`,
             top: `${p.y}%`,
@@ -81,17 +81,11 @@ function FloatingParticles() {
             height: p.size,
             background: `${p.color}${p.opacity})`,
             boxShadow: `0 0 ${p.size * 3}px ${p.color}${p.opacity * 0.5})`,
-          }}
-          animate={{
-            y: [0, -30, 0],
-            x: [0, p.size * 7 - 10, 0],
-            opacity: [p.opacity, p.opacity * 1.5, p.opacity],
-          }}
-          transition={{
-            duration: p.duration,
-            delay: p.delay,
-            repeat: Infinity,
-            ease: 'easeInOut',
+            '--float-x': `${p.size * 7 - 10}px`,
+            '--float-opacity': p.opacity,
+            '--float-opacity-peak': p.opacity * 1.5,
+            animationDuration: `${p.duration}s`,
+            animationDelay: `${p.delay}s`,
           }}
         />
       ))}
@@ -124,15 +118,13 @@ function Navbar() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <a href="#" className="flex items-center gap-2.5 group">
           <div className="relative w-8 h-8">
-            <motion.div
+            <div
               className="absolute inset-0 rounded-full border border-purple-500/50"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+              style={{ animation: 'wormhole-spin 8s linear infinite' }}
             />
-            <motion.div
+            <div
               className="absolute inset-1 rounded-full border border-cyan-400/40"
-              animate={{ rotate: -360 }}
-              transition={{ duration: 6, repeat: Infinity, ease: 'linear' }}
+              style={{ animation: 'wormhole-spin 6s linear infinite reverse' }}
             />
             <div className="absolute inset-2 rounded-full bg-purple-500/30" />
           </div>
@@ -1850,10 +1842,9 @@ function Footer() {
       <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2.5">
           <div className="relative w-6 h-6">
-            <motion.div
+            <div
               className="absolute inset-0 rounded-full border border-purple-500/40"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
+              style={{ animation: 'wormhole-spin 10s linear infinite' }}
             />
             <div className="absolute inset-1.5 rounded-full bg-purple-500/20" />
           </div>

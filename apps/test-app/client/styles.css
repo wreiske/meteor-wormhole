@@ -76,6 +76,25 @@ pre,
   }
 }
 
+/* ── Floating Particles (GPU-accelerated) ──────────────────────────────────── */
+
+.particle-float {
+  will-change: transform, opacity;
+  animation: particle-drift ease-in-out infinite;
+}
+
+@keyframes particle-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+    opacity: var(--float-opacity);
+  }
+  50% {
+    transform: translate3d(var(--float-x), -30px, 0);
+    opacity: var(--float-opacity-peak);
+  }
+}
+
 /* ── Wormhole Portal ───────────────────────────────────────────────────────── */
 
 .wormhole-portal {
