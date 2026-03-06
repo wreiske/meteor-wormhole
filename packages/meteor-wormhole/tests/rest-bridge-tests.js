@@ -1,3 +1,4 @@
+import { Meteor } from 'meteor/meteor';
 import { Tinytest } from 'meteor/tinytest';
 import { RestBridge } from '../lib/rest-bridge';
 import { MethodRegistry } from '../lib/registry';
@@ -6,6 +7,25 @@ import { MethodRegistry } from '../lib/registry';
 function freshRegistry() {
   return new MethodRegistry();
 }
+
+// --- Register test-only Meteor methods for REST invocation tests ---
+Meteor.methods({
+  'restTest.echo'({ message }) {
+    return { echoed: message };
+  },
+  'restTest.add'({ a, b }) {
+    return { result: a + b };
+  },
+  'restTest.generic'(...args) {
+    return { args };
+  },
+  'restTest.meteorError'() {
+    throw new Meteor.Error('test-error', 'Something went wrong');
+  },
+  'restTest.genericError'() {
+    throw new Error('Unexpected failure');
+  },
+});
 
 // --- Constructor / lifecycle ---
 
@@ -281,3 +301,184 @@ Tinytest.addAsync('RestBridge - spec reflects current registry state', async fun
     bridge.stop();
   }
 });
+
+// --- POST method invocation tests ---
+
+Tinytest.addAsync(
+  'RestBridge - POST invokes method with inputSchema (body as single arg)',
+  async function (test) {
+    const registry = freshRegistry();
+    registry.register('restTest.echo', {
+      description: 'Echo test',
+      inputSchema: {
+        type: 'object',
+        properties: { message: { type: 'string' } },
+        required: ['message'],
+      },
+    });
+    const bridge = new RestBridge(registry, { restPath: '/test-rest-invoke' });
+    bridge.start();
+
+    try {
+      const res = await fetch('http://localhost:3000/test-rest-invoke/restTest_echo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: 'hello' }),
+      });
+      test.equal(res.status, 200);
+
+      const body = await res.json();
+      test.equal(body.result.echoed, 'hello');
+    } finally {
+      bridge.stop();
+    }
+  },
+);
+
+Tinytest.addAsync(
+  'RestBridge - POST invokes method in generic mode (args array spread)',
+  async function (test) {
+    const registry = freshRegistry();
+    registry.register('restTest.generic', { description: 'Generic test' });
+    const bridge = new RestBridge(registry, { restPath: '/test-rest-generic' });
+    bridge.start();
+
+    try {
+      const res = await fetch('http://localhost:3000/test-rest-generic/restTest_generic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ args: ['a', 'b', 'c'] }),
+      });
+      test.equal(res.status, 200);
+
+      const body = await res.json();
+      test.equal(body.result.args.length, 3);
+      test.equal(body.result.args[0], 'a');
+    } finally {
+      bridge.stop();
+    }
+  },
+);
+
+Tinytest.addAsync('RestBridge - POST with valid API key succeeds', async function (test) {
+  const registry = freshRegistry();
+  registry.register('restTest.echo', {
+    description: 'Echo with auth',
+    inputSchema: {
+      type: 'object',
+      properties: { message: { type: 'string' } },
+      required: ['message'],
+    },
+  });
+  const bridge = new RestBridge(registry, {
+    restPath: '/test-rest-authok',
+    apiKey: 'valid-secret',
+  });
+  bridge.start();
+
+  try {
+    const res = await fetch('http://localhost:3000/test-rest-authok/restTest_echo', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer valid-secret',
+      },
+      body: JSON.stringify({ message: 'authed' }),
+    });
+    test.equal(res.status, 200);
+
+    const body = await res.json();
+    test.equal(body.result.echoed, 'authed');
+  } finally {
+    bridge.stop();
+  }
+});
+
+Tinytest.addAsync('RestBridge - POST with invalid JSON body returns 400', async function (test) {
+  const registry = freshRegistry();
+  registry.register('restTest.echo', { description: 'JSON test' });
+  const bridge = new RestBridge(registry, { restPath: '/test-rest-badjson' });
+  bridge.start();
+
+  try {
+    const res = await fetch('http://localhost:3000/test-rest-badjson/restTest_echo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{not valid json',
+    });
+    test.equal(res.status, 400);
+
+    const body = await res.json();
+    test.equal(body.error, 'invalid-json');
+  } finally {
+    bridge.stop();
+  }
+});
+
+Tinytest.addAsync('RestBridge - POST propagates Meteor.Error', async function (test) {
+  const registry = freshRegistry();
+  registry.register('restTest.meteorError', { description: 'Meteor.Error test' });
+  const bridge = new RestBridge(registry, { restPath: '/test-rest-merror' });
+  bridge.start();
+
+  try {
+    const res = await fetch('http://localhost:3000/test-rest-merror/restTest_meteorError', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    test.equal(res.status, 500);
+
+    const body = await res.json();
+    test.equal(body.error, 'test-error');
+    test.equal(body.reason, 'Something went wrong');
+  } finally {
+    bridge.stop();
+  }
+});
+
+Tinytest.addAsync('RestBridge - POST returns 500 on generic error', async function (test) {
+  const registry = freshRegistry();
+  registry.register('restTest.genericError', { description: 'Generic error test' });
+  const bridge = new RestBridge(registry, { restPath: '/test-rest-generr' });
+  bridge.start();
+
+  try {
+    const res = await fetch('http://localhost:3000/test-rest-generr/restTest_genericError', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    test.equal(res.status, 500);
+
+    const body = await res.json();
+    test.equal(body.error, 'internal-error');
+    test.isTrue(body.message.indexOf('Unexpected failure') !== -1);
+  } finally {
+    bridge.stop();
+  }
+});
+
+Tinytest.addAsync(
+  'RestBridge - POST with empty body invokes method (no args)',
+  async function (test) {
+    const registry = freshRegistry();
+    registry.register('restTest.generic', { description: 'Empty body test' });
+    const bridge = new RestBridge(registry, { restPath: '/test-rest-empty' });
+    bridge.start();
+
+    try {
+      const res = await fetch('http://localhost:3000/test-rest-empty/restTest_generic', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      test.equal(res.status, 200);
+
+      const body = await res.json();
+      // Generic mode with no body → args defaults to []
+      test.isTrue(body.result !== undefined);
+    } finally {
+      bridge.stop();
+    }
+  },
+);
