@@ -420,6 +420,69 @@ const FEATURES = [
     title: 'Smart Defaults',
     desc: 'Auto-excludes internal Meteor and accounts methods in all-in mode.',
   },
+  {
+    icon: (
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+      </svg>
+    ),
+    color: 'text-teal-400',
+    bg: 'bg-teal-400/10 border-teal-400/20',
+    title: 'REST API Endpoints',
+    desc: 'Optionally expose all registered methods as REST POST endpoints — perfect for non-MCP clients.',
+  },
+  {
+    icon: (
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
+      </svg>
+    ),
+    color: 'text-pink-400',
+    bg: 'bg-pink-400/10 border-pink-400/20',
+    title: 'OpenAPI Spec',
+    desc: 'Auto-generates an OpenAPI 3.1 spec from your registry — feed it to any API client or SDK generator.',
+  },
+  {
+    icon: (
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+    ),
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-400/10 border-emerald-400/20',
+    title: 'Swagger UI',
+    desc: 'Built-in interactive API docs at /api/docs — browse, try, and debug your endpoints without leaving the browser.',
+  },
 ];
 
 function Features() {
@@ -539,6 +602,25 @@ const STEPS = [
       </svg>
     ),
   },
+  {
+    title: 'REST & OpenAPI',
+    desc: 'When REST is enabled, each tool also becomes a POST endpoint. An OpenAPI 3.1 spec and Swagger UI are served automatically.',
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+      </svg>
+    ),
+  },
 ];
 
 function HowItWorks() {
@@ -549,7 +631,7 @@ function HowItWorks() {
           <div className="text-center mb-16">
             <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">How It Works</h2>
             <p className="text-neutral-400 text-lg max-w-xl mx-auto">
-              From registration to invocation in four seamless steps.
+              From registration to invocation in five seamless steps.
             </p>
           </div>
         </FadeInSection>
@@ -587,7 +669,12 @@ const INSTALL_CODE = `meteor add wreiske:meteor-wormhole`;
 const USAGE_CODE = `import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
 
 // All-in mode — expose every method automatically
-Wormhole.init({ mode: 'all', path: '/mcp' });
+// Enable REST API with Swagger docs at /api/docs
+Wormhole.init({
+  mode: 'all',
+  path: '/mcp',
+  rest: { enabled: true, path: '/api', docs: true },
+});
 
 // Or opt-in mode with rich schemas
 Wormhole.init({ mode: 'opt-in', path: '/mcp' });
@@ -735,6 +822,12 @@ const API_OPTIONS = [
     default: '[]',
     desc: 'Methods to exclude (all-in mode)',
   },
+  {
+    option: 'rest',
+    type: 'boolean | object',
+    default: 'false',
+    desc: 'Enable REST API endpoints (set true or { enabled, path, docs, apiKey })',
+  },
 ];
 
 function ApiReference() {
@@ -796,10 +889,14 @@ function ApiReference() {
                 Explicitly expose a method as an MCP tool. Pass{' '}
                 <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">
                   description
-                </code>{' '}
-                and{' '}
+                </code>
+                ,{' '}
                 <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">
                   inputSchema
+                </code>
+                , and optionally{' '}
+                <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">
+                  outputSchema
                 </code>{' '}
                 (JSON Schema) for rich tool metadata.
               </p>
