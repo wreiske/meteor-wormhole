@@ -11,7 +11,10 @@ https://wormhole.meteorapp.com/
 - **All-In Mode**: Automatically expose all Meteor methods as MCP tools
 - **Opt-In Mode**: Selectively expose specific methods with rich metadata
 - **Streamable HTTP Transport**: MCP server embedded in your Meteor app via WebApp
-- **API Key Authentication**: Optional bearer token auth for MCP endpoints
+- **REST API**: Optional REST endpoints for every exposed method (`POST /api/<method>`)
+- **OpenAPI 3.1 Spec**: Auto-generated OpenAPI spec from your method registry
+- **Swagger UI**: Built-in API docs browser at `/api/docs`
+- **API Key Authentication**: Optional bearer token auth for MCP and REST endpoints
 - **Input Schemas**: Define JSON Schema or Zod-compatible schemas for method parameters
 - **Smart Defaults**: Auto-excludes internal Meteor/accounts methods in all-in mode
 
@@ -85,6 +88,27 @@ Wormhole.expose('todos.add', {
 });
 ```
 
+### Enable REST API + Swagger UI
+
+```js
+Wormhole.init({
+  mode: 'all',
+  path: '/mcp',
+  rest: {
+    enabled: true, // REST is opt-in, disabled by default
+    path: '/api', // Base path for REST endpoints
+    docs: true, // Swagger UI at /api/docs
+  },
+});
+```
+
+Once enabled:
+
+- `GET /api/docs` — interactive Swagger UI
+- `GET /api/openapi.json` — OpenAPI 3.1 spec
+- `POST /api/<method_name>` — call any exposed method (e.g., `POST /api/todos_add`)
+- `GET /api/` — list all available endpoints
+
 ### 3. Connect an AI Agent
 
 Point your MCP client at `http://localhost:3000/mcp` — the agent can now discover and invoke your Meteor methods as tools.
@@ -95,23 +119,36 @@ Point your MCP client at `http://localhost:3000/mcp` — the agent can now disco
 
 Initialize the MCP bridge.
 
-| Option    | Type                   | Default             | Description                      |
-| --------- | ---------------------- | ------------------- | -------------------------------- |
-| `mode`    | `'all' \| 'opt-in'`    | `'all'`             | Exposure mode                    |
-| `path`    | `string`               | `'/mcp'`            | HTTP endpoint path               |
-| `name`    | `string`               | `'meteor-wormhole'` | MCP server name                  |
-| `version` | `string`               | `'1.0.0'`           | MCP server version               |
-| `apiKey`  | `string \| null`       | `null`              | Bearer token for auth            |
-| `exclude` | `(string \| RegExp)[]` | `[]`                | Methods to exclude (all-in mode) |
+| Option    | Type                   | Default             | Description                        |
+| --------- | ---------------------- | ------------------- | ---------------------------------- |
+| `mode`    | `'all' \| 'opt-in'`    | `'all'`             | Exposure mode                      |
+| `path`    | `string`               | `'/mcp'`            | HTTP endpoint path                 |
+| `name`    | `string`               | `'meteor-wormhole'` | MCP server name                    |
+| `version` | `string`               | `'1.0.0'`           | MCP server version                 |
+| `apiKey`  | `string \| null`       | `null`              | Bearer token for auth              |
+| `exclude` | `(string \| RegExp)[]` | `[]`                | Methods to exclude (all-in mode)   |
+| `rest`    | `object \| boolean`    | `false`             | REST API configuration (see below) |
+
+#### `rest` options
+
+| Option    | Type             | Default     | Description                                  |
+| --------- | ---------------- | ----------- | -------------------------------------------- |
+| `enabled` | `boolean`        | `false`     | Enable REST endpoints                        |
+| `path`    | `string`         | `'/api'`    | Base path for REST endpoints                 |
+| `docs`    | `boolean`        | `true`      | Serve Swagger UI at `<path>/docs`            |
+| `apiKey`  | `string \| null` | _inherited_ | API key for REST (defaults to main `apiKey`) |
+
+Shorthand: `rest: true` enables REST with all defaults.
 
 ### `Wormhole.expose(methodName, options)`
 
 Explicitly expose a method as an MCP tool.
 
-| Option        | Type     | Description                       |
-| ------------- | -------- | --------------------------------- |
-| `description` | `string` | Human-readable tool description   |
-| `inputSchema` | `object` | JSON Schema for method parameters |
+| Option         | Type     | Description                                    |
+| -------------- | -------- | ---------------------------------------------- |
+| `description`  | `string` | Human-readable tool description                |
+| `inputSchema`  | `object` | JSON Schema for method parameters              |
+| `outputSchema` | `object` | JSON Schema for return value (used in OpenAPI) |
 
 ### `Wormhole.unexpose(methodName)`
 
@@ -126,6 +163,8 @@ Remove a method from MCP exposure.
 3. **Tool Mapping**: Each exposed Meteor method becomes an MCP tool. Method names are sanitized (e.g., `todos.add` → `todos_add`).
 
 4. **Invocation**: When an AI agent calls a tool, the bridge invokes the corresponding Meteor method via `Meteor.callAsync()` and returns the result.
+
+5. **REST API** (optional): When enabled, a parallel REST bridge mounts at the configured path. Each method gets a `POST` endpoint. An OpenAPI 3.1 spec is auto-generated from the registry's metadata and input schemas, and Swagger UI provides interactive documentation.
 
 ## Running Tests
 
