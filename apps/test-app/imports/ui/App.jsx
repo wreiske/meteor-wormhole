@@ -235,7 +235,7 @@ function Hero() {
             transition={{ duration: 0.6, delay: 1 }}
             className="inline-block mb-6 rounded-full border border-purple-500/30 bg-purple-500/10 px-4 py-1.5 text-xs font-medium text-purple-300 tracking-wide"
           >
-            MODEL CONTEXT PROTOCOL
+            MCP &middot; REST API &middot; OpenAPI
           </motion.div>
 
           <h1 className="mb-6 text-5xl sm:text-7xl font-black tracking-tight">
@@ -248,7 +248,7 @@ function Hero() {
             <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-2 py-0.5 text-sm text-purple-300 font-mono">
               Meteor.methods
             </code>{' '}
-            to AI agents through{' '}
+            to AI agents via{' '}
             <a
               href="https://modelcontextprotocol.io/"
               target="_blank"
@@ -257,11 +257,12 @@ function Hero() {
             >
               MCP
             </a>
+            , REST endpoints, and OpenAPI
           </p>
 
           <p className="mb-10 text-neutral-500 max-w-xl mx-auto">
-            Expose your server methods as MCP tools so Claude, GPT, and other AI agents can discover
-            and invoke them — zero config required.
+            Expose your server methods as MCP tools, REST API endpoints with Swagger UI, and
+            auto-generated OpenAPI specs — zero config required.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4">
