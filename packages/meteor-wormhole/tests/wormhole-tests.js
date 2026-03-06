@@ -250,3 +250,120 @@ Tinytest.add(
     test.equal(Wormhole.options.exclude[0], 'secret.method');
   }),
 );
+
+// --- REST configuration tests ---
+
+Tinytest.add(
+  'Wormhole - rest is disabled by default',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in' });
+    const opts = Wormhole.options;
+    test.isFalse(opts.rest.enabled);
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - rest default options when disabled',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in' });
+    const rest = Wormhole.options.rest;
+    test.isFalse(rest.enabled);
+    test.equal(rest.path, '/api');
+    test.isTrue(rest.docs);
+    test.equal(rest.apiKey, null);
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - rest enabled via rest: true shorthand',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in', rest: true });
+    test.isTrue(Wormhole.options.rest.enabled);
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - rest enabled via rest.enabled: true',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in', rest: { enabled: true } });
+    test.isTrue(Wormhole.options.rest.enabled);
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - rest custom path',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in', rest: { enabled: true, path: '/rest/v2' } });
+    test.equal(Wormhole.options.rest.path, '/rest/v2');
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - rest docs can be disabled',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in', rest: { enabled: true, docs: false } });
+    test.isFalse(Wormhole.options.rest.docs);
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - rest inherits main apiKey by default',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in', apiKey: 'shared-key', rest: { enabled: true } });
+    test.equal(Wormhole.options.rest.apiKey, 'shared-key');
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - rest can have separate apiKey',
+  withReset(function (test) {
+    Wormhole.init({
+      mode: 'opt-in',
+      apiKey: 'mcp-key',
+      rest: { enabled: true, apiKey: 'rest-key' },
+    });
+    test.equal(Wormhole.options.apiKey, 'mcp-key');
+    test.equal(Wormhole.options.rest.apiKey, 'rest-key');
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - _reset clears REST bridge',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in', rest: { enabled: true, path: '/test-wh-reset-rest' } });
+    test.isTrue(Wormhole.initialized);
+
+    Wormhole._reset();
+    test.isFalse(Wormhole.initialized);
+    test.equal(Wormhole.registry.size(), 0);
+  }),
+);
+
+// --- Expose with outputSchema ---
+
+Tinytest.add(
+  'Wormhole - expose with outputSchema stores it in registry',
+  withReset(function (test) {
+    const outputSchema = {
+      type: 'object',
+      properties: { id: { type: 'number' } },
+    };
+    Wormhole.expose('my.method', {
+      description: 'Test',
+      outputSchema,
+    });
+
+    const entry = Wormhole.registry.get('my.method');
+    test.equal(entry.outputSchema, outputSchema);
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - expose without outputSchema stores null',
+  withReset(function (test) {
+    Wormhole.expose('my.method', { description: 'No output schema' });
+
+    const entry = Wormhole.registry.get('my.method');
+    test.equal(entry.outputSchema, null);
+  }),
+);

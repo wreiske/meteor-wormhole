@@ -3,3 +3,5 @@ import './registry-tests';
 import './hooks-tests';
 import './mcp-bridge-tests';
 import './wormhole-tests';
+import './openapi-tests';
+import './rest-bridge-tests';

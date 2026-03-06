@@ -13,11 +13,13 @@ export class MethodRegistry {
    * @param {object} options - Tool metadata
    * @param {string} [options.description] - Human-readable description
    * @param {object} [options.inputSchema] - JSON Schema for parameters
+   * @param {object} [options.outputSchema] - JSON Schema for return value (used in OpenAPI spec)
    */
   register(name, options = {}) {
     const entry = {
       description: options.description || `Meteor method: ${name}`,
       inputSchema: options.inputSchema || null,
+      outputSchema: options.outputSchema || null,
       registeredAt: Date.now(),
     };
     this._methods.set(name, entry);

@@ -14,6 +14,13 @@ Wormhole.init({
   exclude: [/^admin\./],
   // Optionally require an API key:
   // apiKey: 'my-secret-key',
+
+  // REST API + OpenAPI spec + Swagger UI
+  rest: {
+    enabled: true,
+    path: '/api',
+    docs: true,
+  },
 });
 
 // --- Explicitly expose methods with rich schemas (opt-in style) ---
