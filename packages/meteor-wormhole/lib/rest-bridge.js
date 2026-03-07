@@ -3,16 +3,32 @@ import { WebApp } from 'meteor/webapp';
 import { sanitizeToolName } from './mcp-bridge';
 import { generateOpenApiSpec } from './openapi';
 
+/** Maximum allowed request body size in bytes (1 MB). */
+const MAX_BODY_SIZE = 1024 * 1024;
+
 /**
  * Parse JSON body from an HTTP request stream.
  * @param {import('http').IncomingMessage} req - HTTP request
  * @returns {Promise<object|undefined>} Parsed JSON body
- * @throws {Error} If the body contains invalid JSON
+ * @throws {Error} If the body contains invalid JSON or exceeds the size limit
  */
 function parseBody(req) {
   return new Promise((resolve, reject) => {
+    const contentType = req.headers['content-type'] || '';
+    if (contentType && !contentType.startsWith('application/json')) {
+      reject(new Error('Content-Type must be application/json'));
+      return;
+    }
+
     let data = '';
+    let size = 0;
     req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY_SIZE) {
+        req.destroy();
+        reject(new Error('Request body too large'));
+        return;
+      }
       data += chunk.toString();
     });
     req.on('end', () => {
@@ -47,6 +63,7 @@ const SWAGGER_UI_VERSION = '5.18.2';
  * @returns {string} HTML string for the Swagger UI page
  */
 function swaggerHtml(specUrl) {
+  const safeSpecUrl = JSON.stringify(specUrl);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -58,7 +75,7 @@ function swaggerHtml(specUrl) {
   <div id="swagger-ui"></div>
   <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@${SWAGGER_UI_VERSION}/swagger-ui-bundle.js"></script>
   <script>
-    SwaggerUIBundle({ url: '${specUrl}', dom_id: '#swagger-ui' });
+    SwaggerUIBundle({ url: ${safeSpecUrl}, dom_id: '#swagger-ui' });
   </script>
 </body>
 </html>`;
@@ -82,17 +99,33 @@ export class RestBridge {
     this._registry = registry;
     this._options = options;
     this._started = false;
+    this._mounted = false;
+    this._routeMap = new Map();
+    this._buildRouteMap();
+    this._unsubscribe = this._registry.onChange(() => this._buildRouteMap());
   }
 
   /**
    * Start the REST bridge, mounting HTTP handlers on the configured path.
+   * Middleware is mounted once and gated on `_started`; subsequent calls are safe.
    * @returns {void}
    */
   start() {
     if (this._started) return;
+    this._started = true;
+
+    if (this._mounted) return;
+    this._mounted = true;
+
     const basePath = this._options.restPath || '/api';
 
     WebApp.connectHandlers.use(basePath, async (req, res, next) => {
+      if (!this._started) {
+        if (typeof next === 'function') {
+          next();
+        }
+        return;
+      }
       try {
         await this._handleRequest(req, res, basePath, next);
       } catch (_err) {
@@ -101,8 +134,6 @@ export class RestBridge {
         }
       }
     });
-
-    this._started = true;
   }
 
   /**
@@ -213,6 +244,30 @@ export class RestBridge {
   }
 
   /**
+   * Build a Map<routeName, methodName> for O(1) route lookup.
+   * Called on construction and whenever the registry changes.
+   * @returns {void}
+   */
+  _buildRouteMap() {
+    this._routeMap.clear();
+    const methods = this._registry.getAll();
+    for (const [name] of methods) {
+      const route = sanitizeToolName(name);
+      if (this._routeMap.has(route)) {
+        // Collision detected — store an array so we can report it at invocation time
+        const existing = this._routeMap.get(route);
+        if (Array.isArray(existing)) {
+          existing.push(name);
+        } else {
+          this._routeMap.set(route, [existing, name]);
+        }
+      } else {
+        this._routeMap.set(route, name);
+      }
+    }
+  }
+
+  /**
    * Invoke a Meteor method via its sanitized route name.
    * @param {string} routeName - The sanitized tool/route name
    * @param {import('http').IncomingMessage} req - HTTP request
@@ -220,29 +275,43 @@ export class RestBridge {
    * @returns {Promise<void>}
    */
   async _invokeMethod(routeName, req, res) {
-    // Find the original method name from the registry
-    const methods = this._registry.getAll();
-    let methodName = null;
-    let config = null;
+    const entry = this._routeMap.get(routeName);
 
-    for (const [name, entry] of methods) {
-      if (sanitizeToolName(name) === routeName) {
-        methodName = name;
-        config = entry;
-        break;
-      }
-    }
-
-    if (!methodName) {
+    if (!entry) {
       sendJson(res, 404, { error: 'not-found', message: `No method mapped to: ${routeName}` });
       return;
     }
 
+    // Collision: multiple methods map to the same sanitized route
+    if (Array.isArray(entry)) {
+      sendJson(res, 500, {
+        error: 'ambiguous-route',
+        message: `Multiple methods mapped to route: ${routeName}`,
+        methods: entry,
+      });
+      return;
+    }
+
+    const methodName = entry;
+    const config = this._registry.get(methodName);
+
     let body;
     try {
       body = await parseBody(req);
-    } catch (_e) {
-      sendJson(res, 400, { error: 'invalid-json', message: 'Request body must be valid JSON' });
+    } catch (e) {
+      if (e.message === 'Request body too large') {
+        sendJson(res, 413, {
+          error: 'payload-too-large',
+          message: 'Request body exceeds 1 MB limit',
+        });
+      } else if (e.message === 'Content-Type must be application/json') {
+        sendJson(res, 415, {
+          error: 'unsupported-media-type',
+          message: 'Content-Type must be application/json',
+        });
+      } else {
+        sendJson(res, 400, { error: 'invalid-json', message: 'Request body must be valid JSON' });
+      }
       return;
     }
 

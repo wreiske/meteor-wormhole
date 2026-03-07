@@ -44,7 +44,10 @@ Wormhole.init({
   },
 });
 
-// Optionally provide outputSchema for richer OpenAPI docs
+// Optionally provide outputSchema for richer OpenAPI docs.
+// The schema describes the value inside the { result } envelope
+// returned by the REST API (i.e. POST /api/todos_add returns
+// { result: { id: 1, title: "..." } }).
 Wormhole.expose('todos.add', {
   description: 'Add a todo',
   inputSchema: { type: 'object', properties: { title: { type: 'string' } }, required: ['title'] },

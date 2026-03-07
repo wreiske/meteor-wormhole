@@ -144,11 +144,11 @@ Shorthand: `rest: true` enables REST with all defaults.
 
 Explicitly expose a method as an MCP tool.
 
-| Option         | Type     | Description                                    |
-| -------------- | -------- | ---------------------------------------------- |
-| `description`  | `string` | Human-readable tool description                |
-| `inputSchema`  | `object` | JSON Schema for method parameters              |
-| `outputSchema` | `object` | JSON Schema for return value (used in OpenAPI) |
+| Option         | Type     | Description                                                                             |
+| -------------- | -------- | --------------------------------------------------------------------------------------- |
+| `description`  | `string` | Human-readable tool description                                                         |
+| `inputSchema`  | `object` | JSON Schema for method parameters                                                       |
+| `outputSchema` | `object` | JSON Schema for the return value (wrapped inside `{ result }` envelope in OpenAPI/REST) |
 
 ### `Wormhole.unexpose(methodName)`
 

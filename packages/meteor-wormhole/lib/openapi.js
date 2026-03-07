@@ -51,6 +51,18 @@ export function generateOpenApiSpec(registry, options = {}) {
     const routeName = sanitizeToolName(methodName);
     const pathKey = `/${routeName}`;
 
+    if (spec.paths[pathKey]) {
+      const existingOperationId =
+        spec.paths[pathKey].post && spec.paths[pathKey].post.operationId
+          ? spec.paths[pathKey].post.operationId
+          : 'unknown-method';
+      throw new Error(
+        `Duplicate OpenAPI path key '${pathKey}' generated from Meteor methods ` +
+          `'${existingOperationId}' and '${methodName}'. ` +
+          'Ensure method names sanitize to unique route names or adjust sanitizeToolName().',
+      );
+    }
+
     const operation = {
       summary: config.description || `Call Meteor method: ${methodName}`,
       operationId: routeName,
@@ -60,13 +72,20 @@ export function generateOpenApiSpec(registry, options = {}) {
           description: 'Successful method call',
           content: {
             'application/json': {
-              schema: config.outputSchema || {
-                type: 'object',
-                description: 'The return value of the Meteor method, JSON-encoded.',
-                properties: {
-                  result: { description: 'Method return value' },
-                },
-              },
+              schema: config.outputSchema
+                ? {
+                    type: 'object',
+                    properties: {
+                      result: config.outputSchema,
+                    },
+                  }
+                : {
+                    type: 'object',
+                    description: 'The return value of the Meteor method, JSON-encoded.',
+                    properties: {
+                      result: { description: 'Method return value' },
+                    },
+                  },
             },
           },
         },

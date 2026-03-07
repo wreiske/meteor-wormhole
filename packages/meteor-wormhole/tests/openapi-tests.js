@@ -260,7 +260,7 @@ Tinytest.add('OpenAPI - 500 response schema includes error and reason fields', f
 
 // --- outputSchema ---
 
-Tinytest.add('OpenAPI - uses custom outputSchema when provided', function (test) {
+Tinytest.add('OpenAPI - uses custom outputSchema wrapped in result envelope', function (test) {
   const registry = freshRegistry();
   const outputSchema = {
     type: 'object',
@@ -277,7 +277,9 @@ Tinytest.add('OpenAPI - uses custom outputSchema when provided', function (test)
   const responseSchema =
     spec.paths['/todos_add'].post.responses['200'].content['application/json'].schema;
 
-  test.equal(responseSchema, outputSchema);
+  // outputSchema should be wrapped inside { result: outputSchema } to match the REST envelope
+  test.equal(responseSchema.type, 'object');
+  test.equal(responseSchema.properties.result, outputSchema);
 });
 
 Tinytest.add('OpenAPI - default 200 schema when no outputSchema', function (test) {
