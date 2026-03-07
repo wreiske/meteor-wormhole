@@ -2,7 +2,7 @@
 
 > A cosmic bridge connecting Meteor methods to AI agents through MCP
 
-This Meteor package exposes your `Meteor.methods` as [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) tools so AI agents can discover and invoke them.
+This Meteor package exposes your `Meteor.methods` as [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) tools so AI agents can discover and invoke them. Optionally, it also exposes them as REST endpoints with an auto-generated OpenAPI spec and Swagger UI.
 
 ## Install
 
@@ -29,5 +29,40 @@ Wormhole.expose('myMethod', {
   },
 });
 ```
+
+### REST API + OpenAPI
+
+Enable optional REST endpoints, OpenAPI spec, and Swagger UI:
+
+```js
+Wormhole.init({
+  mode: 'all',
+  rest: {
+    enabled: true, // opt-in, disabled by default
+    path: '/api', // REST base path
+    docs: true, // Swagger UI at /api/docs
+  },
+});
+
+// Optionally provide outputSchema for richer OpenAPI docs.
+// The schema describes the value inside the { result } envelope
+// returned by the REST API (i.e. POST /api/todos_add returns
+// { result: { id: 1, title: "..." } }).
+Wormhole.expose('todos.add', {
+  description: 'Add a todo',
+  inputSchema: { type: 'object', properties: { title: { type: 'string' } }, required: ['title'] },
+  outputSchema: {
+    type: 'object',
+    properties: { id: { type: 'number' }, title: { type: 'string' } },
+  },
+});
+```
+
+Once enabled:
+
+- `GET /api/docs` — Swagger UI
+- `GET /api/openapi.json` — OpenAPI 3.1 spec
+- `POST /api/<method_name>` — call any exposed method
+- `GET /api/` — list all endpoints
 
 See the [main README](../../README.md) for full documentation.

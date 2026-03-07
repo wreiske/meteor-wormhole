@@ -144,7 +144,10 @@ function Navbar() {
             Security
           </a>
           <a href="#tester" className="text-neutral-400 hover:text-white transition">
-            Tester
+            MCP Tester
+          </a>
+          <a href="#rest-tester" className="text-neutral-400 hover:text-white transition">
+            REST Tester
           </a>
           <a
             href="https://github.com/wreiske/meteor-wormhole"
@@ -235,7 +238,7 @@ function Hero() {
             transition={{ duration: 0.6, delay: 1 }}
             className="inline-block mb-6 rounded-full border border-purple-500/30 bg-purple-500/10 px-4 py-1.5 text-xs font-medium text-purple-300 tracking-wide"
           >
-            MODEL CONTEXT PROTOCOL
+            MCP &middot; REST API &middot; OpenAPI
           </motion.div>
 
           <h1 className="mb-6 text-5xl sm:text-7xl font-black tracking-tight">
@@ -248,7 +251,7 @@ function Hero() {
             <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-2 py-0.5 text-sm text-purple-300 font-mono">
               Meteor.methods
             </code>{' '}
-            to AI agents through{' '}
+            to AI agents via{' '}
             <a
               href="https://modelcontextprotocol.io/"
               target="_blank"
@@ -257,11 +260,12 @@ function Hero() {
             >
               MCP
             </a>
+            , REST endpoints, and OpenAPI
           </p>
 
           <p className="mb-10 text-neutral-500 max-w-xl mx-auto">
-            Expose your server methods as MCP tools so Claude, GPT, and other AI agents can discover
-            and invoke them — zero config required.
+            Expose your server methods as MCP tools, REST API endpoints with Swagger UI, and
+            auto-generated OpenAPI specs — zero config required.
           </p>
 
           <div className="flex flex-col sm:flex-row justify-center gap-4">
@@ -420,6 +424,69 @@ const FEATURES = [
     title: 'Smart Defaults',
     desc: 'Auto-excludes internal Meteor and accounts methods in all-in mode.',
   },
+  {
+    icon: (
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+      </svg>
+    ),
+    color: 'text-teal-400',
+    bg: 'bg-teal-400/10 border-teal-400/20',
+    title: 'REST API Endpoints',
+    desc: 'Optionally expose all registered methods as REST POST endpoints — perfect for non-MCP clients.',
+  },
+  {
+    icon: (
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+        />
+      </svg>
+    ),
+    color: 'text-pink-400',
+    bg: 'bg-pink-400/10 border-pink-400/20',
+    title: 'OpenAPI Spec',
+    desc: 'Auto-generates an OpenAPI 3.1 spec from your registry — feed it to any API client or SDK generator.',
+  },
+  {
+    icon: (
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+    ),
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-400/10 border-emerald-400/20',
+    title: 'Swagger UI',
+    desc: 'Built-in interactive API docs at /api/docs — browse, try, and debug your endpoints without leaving the browser.',
+  },
 ];
 
 function Features() {
@@ -539,6 +606,25 @@ const STEPS = [
       </svg>
     ),
   },
+  {
+    title: 'REST & OpenAPI',
+    desc: 'When REST is enabled, each tool also becomes a POST endpoint. An OpenAPI 3.1 spec and Swagger UI are served automatically.',
+    icon: (
+      <svg
+        className="w-5 h-5"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+      </svg>
+    ),
+  },
 ];
 
 function HowItWorks() {
@@ -549,7 +635,7 @@ function HowItWorks() {
           <div className="text-center mb-16">
             <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">How It Works</h2>
             <p className="text-neutral-400 text-lg max-w-xl mx-auto">
-              From registration to invocation in four seamless steps.
+              From registration to invocation in five seamless steps.
             </p>
           </div>
         </FadeInSection>
@@ -587,7 +673,12 @@ const INSTALL_CODE = `meteor add wreiske:meteor-wormhole`;
 const USAGE_CODE = `import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
 
 // All-in mode — expose every method automatically
-Wormhole.init({ mode: 'all', path: '/mcp' });
+// Enable REST API with Swagger docs at /api/docs
+Wormhole.init({
+  mode: 'all',
+  path: '/mcp',
+  rest: { enabled: true, path: '/api', docs: true },
+});
 
 // Or opt-in mode with rich schemas
 Wormhole.init({ mode: 'opt-in', path: '/mcp' });
@@ -735,6 +826,12 @@ const API_OPTIONS = [
     default: '[]',
     desc: 'Methods to exclude (all-in mode)',
   },
+  {
+    option: 'rest',
+    type: 'boolean | object',
+    default: 'false',
+    desc: 'Enable REST API endpoints (set true or { enabled, path, docs, apiKey })',
+  },
 ];
 
 function ApiReference() {
@@ -796,10 +893,14 @@ function ApiReference() {
                 Explicitly expose a method as an MCP tool. Pass{' '}
                 <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">
                   description
-                </code>{' '}
-                and{' '}
+                </code>
+                ,{' '}
                 <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">
                   inputSchema
+                </code>
+                , and optionally{' '}
+                <code className="rounded-md bg-purple-500/15 border border-purple-500/20 px-1.5 py-0.5 text-purple-300 text-xs font-mono">
+                  outputSchema
                 </code>{' '}
                 (JSON Schema) for rich tool metadata.
               </p>
@@ -1224,6 +1325,563 @@ function SecurityBestPractices() {
   );
 }
 
+// ─── REST API Tester ────────────────────────────────────────────────────────────
+
+function RestTester() {
+  const [basePath, setBasePath] = useState('/api');
+  const [apiKey, setApiKey] = useState('');
+  const [endpoints, setEndpoints] = useState([]);
+  const [selectedEndpoint, setSelectedEndpoint] = useState(null);
+  const [formValues, setFormValues] = useState({});
+  const [showRawJson, setShowRawJson] = useState(false);
+  const [bodyJson, setBodyJson] = useState('{}');
+  const [callResult, setCallResult] = useState(null);
+  const [status, setStatus] = useState('idle'); // idle | loading | loaded | error
+  const [logs, setLogs] = useState([]);
+  const [inputSchema, setInputSchema] = useState(null);
+  const logIdRef = useRef(0);
+
+  const addLog = useCallback((type, message) => {
+    setLogs((prev) => [
+      ...prev,
+      { id: ++logIdRef.current, type, message, time: new Date().toLocaleTimeString() },
+    ]);
+  }, []);
+
+  const authHeaders = useCallback(() => {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    return headers;
+  }, [apiKey]);
+
+  const handleFetchEndpoints = useCallback(async () => {
+    setStatus('loading');
+    setEndpoints([]);
+    setSelectedEndpoint(null);
+    setInputSchema(null);
+    setFormValues({});
+    setShowRawJson(false);
+    setCallResult(null);
+    addLog('info', `Fetching endpoints from ${basePath}...`);
+
+    try {
+      const res = await fetch(basePath, { headers: authHeaders() });
+      const data = await res.json();
+      const found = data.endpoints || [];
+      setEndpoints(found);
+      setStatus('loaded');
+      addLog('success', `Found ${found.length} endpoint(s)`);
+    } catch (err) {
+      addLog('error', `Failed to fetch endpoints: ${err.message}`);
+      setStatus('error');
+    }
+  }, [basePath, authHeaders, addLog]);
+
+  // When an endpoint is selected, fetch the OpenAPI spec to get its input schema
+  const handleSelectEndpoint = useCallback(
+    async (ep) => {
+      setSelectedEndpoint(ep);
+      setFormValues({});
+      setBodyJson('{}');
+      setShowRawJson(false);
+      setCallResult(null);
+      setInputSchema(null);
+
+      try {
+        const res = await fetch(`${basePath}/openapi.json`, { headers: authHeaders() });
+        const spec = await res.json();
+        // Paths in the spec are relative to the server base (e.g. /math_add)
+        const routeName = ep.endpoint.replace(/^POST\s+/, '').replace(basePath + '/', '');
+        const pathKey = `/${routeName}`;
+        const pathItem = spec.paths?.[pathKey];
+        const schema = pathItem?.post?.requestBody?.content?.['application/json']?.schema || null;
+        setInputSchema(schema);
+      } catch {
+        // No schema available — that's fine
+      }
+    },
+    [basePath, authHeaders],
+  );
+
+  const buildArgsFromForm = useCallback(() => {
+    if (!inputSchema?.properties) return {};
+    const args = {};
+    for (const [key, schema] of Object.entries(inputSchema.properties)) {
+      const val = formValues[key];
+      if (val === undefined || val === '') continue;
+      if (schema.type === 'number' || schema.type === 'integer') {
+        const num = Number(val);
+        if (!isNaN(num)) args[key] = num;
+      } else if (schema.type === 'boolean') {
+        args[key] = val === true || val === 'true';
+      } else if (schema.type === 'object' || schema.type === 'array') {
+        try {
+          args[key] = JSON.parse(val);
+        } catch {
+          args[key] = val;
+        }
+      } else {
+        args[key] = val;
+      }
+    }
+    return args;
+  }, [inputSchema, formValues]);
+
+  const handleFormValueChange = useCallback((key, value) => {
+    setFormValues((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const handleCallEndpoint = useCallback(async () => {
+    if (!selectedEndpoint) return;
+    const routeName = selectedEndpoint.endpoint.replace(/^POST\s+/, '').replace(basePath + '/', '');
+    const url = `${basePath}/${routeName}`;
+    addLog('info', `POST ${url}`);
+    setCallResult(null);
+
+    try {
+      let body;
+      if (showRawJson) {
+        try {
+          body = JSON.parse(bodyJson);
+        } catch {
+          addLog('error', 'Invalid JSON body');
+          return;
+        }
+      } else {
+        body = buildArgsFromForm();
+      }
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      setCallResult(data);
+      if (res.ok) {
+        addLog('success', `${res.status} OK`);
+      } else {
+        addLog('error', `${res.status} ${data.error || 'Error'}`);
+      }
+    } catch (err) {
+      addLog('error', `Request failed: ${err.message}`);
+      setCallResult({ error: err.message });
+    }
+  }, [selectedEndpoint, basePath, showRawJson, bodyJson, buildArgsFromForm, authHeaders, addLog]);
+
+  const resultHighlighted = useMemo(() => {
+    if (!callResult) return '';
+    return hljs.highlight(JSON.stringify(callResult, null, 2), { language: 'json' }).value;
+  }, [callResult]);
+
+  const statusConfig = {
+    idle: { color: 'bg-neutral-600', label: 'Not loaded' },
+    loading: { color: 'bg-yellow-500 animate-pulse', label: 'Loading...' },
+    loaded: { color: 'bg-green-500', label: `${endpoints.length} endpoint(s)` },
+    error: { color: 'bg-red-500', label: 'Error' },
+  };
+
+  return (
+    <section id="rest-tester" className="relative px-6 py-24">
+      <div className="mx-auto max-w-5xl">
+        <FadeInSection>
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-black text-white mb-4">Live REST Tester</h2>
+            <p className="text-neutral-400 text-lg max-w-xl mx-auto">
+              Explore and test your REST API endpoints in real time. View the{' '}
+              <a
+                href={`${basePath}/docs`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30 hover:decoration-cyan-400/60 underline-offset-2 transition"
+              >
+                Swagger UI
+              </a>{' '}
+              or{' '}
+              <a
+                href={`${basePath}/openapi.json`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-400/30 hover:decoration-cyan-400/60 underline-offset-2 transition"
+              >
+                OpenAPI spec
+              </a>
+              .
+            </p>
+          </div>
+        </FadeInSection>
+
+        <FadeInSection delay={0.15}>
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Connection Panel */}
+            <div className="space-y-4">
+              <div className="glass-card rounded-2xl p-6 cursor-default">
+                <div className="mb-5 flex items-center gap-2.5">
+                  <motion.div
+                    className={`h-2.5 w-2.5 rounded-full ${statusConfig[status].color}`}
+                    animate={
+                      status === 'loaded'
+                        ? {
+                            boxShadow: [
+                              '0 0 0 0 rgba(34,197,94,0.4)',
+                              '0 0 0 6px rgba(34,197,94,0)',
+                              '0 0 0 0 rgba(34,197,94,0.4)',
+                            ],
+                          }
+                        : {}
+                    }
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                  <span className="text-sm font-semibold text-neutral-300">
+                    {statusConfig[status].label}
+                  </span>
+                </div>
+
+                <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  Base Path
+                </label>
+                <input
+                  type="text"
+                  value={basePath}
+                  onChange={(e) => setBasePath(e.target.value)}
+                  className="mb-4 w-full rounded-xl border border-cyan-500/10 bg-[var(--space-dark)] px-4 py-2.5 text-sm text-neutral-200 font-mono placeholder-neutral-600 focus:border-cyan-500/40 focus:outline-none transition"
+                  placeholder="/api"
+                />
+
+                <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                  API Key (optional)
+                </label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="mb-5 w-full rounded-xl border border-cyan-500/10 bg-[var(--space-dark)] px-4 py-2.5 text-sm text-neutral-200 placeholder-neutral-600 focus:border-cyan-500/40 focus:outline-none transition"
+                  placeholder="Bearer token"
+                />
+
+                <motion.button
+                  onClick={handleFetchEndpoints}
+                  disabled={status === 'loading'}
+                  className="w-full rounded-xl bg-cyan-600 py-3 text-sm font-bold text-white transition hover:bg-cyan-500 disabled:opacity-50"
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                >
+                  {status === 'loading' ? 'Loading...' : 'Fetch Endpoints'}
+                </motion.button>
+              </div>
+
+              {/* Endpoints List */}
+              <AnimatePresence>
+                {endpoints.length > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="glass-card rounded-2xl p-6 cursor-default"
+                  >
+                    <h3 className="mb-3 text-sm font-bold text-neutral-300">
+                      Endpoints <span className="text-cyan-400">({endpoints.length})</span>
+                    </h3>
+                    <div className="space-y-2 max-h-80 overflow-auto">
+                      {endpoints.map((ep) => (
+                        <motion.button
+                          key={ep.method}
+                          onClick={() => handleSelectEndpoint(ep)}
+                          className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition ${
+                            selectedEndpoint?.method === ep.method
+                              ? 'border-cyan-500/50 bg-cyan-500/10 text-cyan-300'
+                              : 'border-cyan-500/5 text-neutral-400 hover:border-cyan-500/20 hover:text-neutral-200'
+                          }`}
+                          whileHover={{ x: 4 }}
+                          transition={{ duration: 0.15 }}
+                        >
+                          <span className="font-mono font-semibold text-xs">{ep.endpoint}</span>
+                          {ep.description && (
+                            <span className="mt-0.5 block text-xs text-neutral-500">
+                              {ep.description}
+                            </span>
+                          )}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Invocation & Results */}
+            <div className="space-y-4">
+              <AnimatePresence mode="wait">
+                {selectedEndpoint && (
+                  <motion.div
+                    key={selectedEndpoint.method}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="glass-card rounded-2xl p-6 cursor-default"
+                  >
+                    <h3 className="mb-1 text-sm font-bold text-neutral-300">
+                      <code className="text-cyan-400 font-mono">{selectedEndpoint.endpoint}</code>
+                    </h3>
+                    {selectedEndpoint.description && (
+                      <p className="mb-4 text-xs text-neutral-500">
+                        {selectedEndpoint.description}
+                      </p>
+                    )}
+
+                    {inputSchema?.properties && (
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-xs font-bold text-neutral-500 uppercase tracking-wider">
+                            Body Parameters
+                          </span>
+                          <button
+                            onClick={() => {
+                              if (!showRawJson) {
+                                setBodyJson(JSON.stringify(buildArgsFromForm(), null, 2));
+                              }
+                              setShowRawJson(!showRawJson);
+                            }}
+                            className="text-[10px] font-semibold text-neutral-500 hover:text-cyan-400 transition uppercase tracking-wider flex items-center gap-1"
+                          >
+                            <svg
+                              className="w-3 h-3"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}
+                            >
+                              {showRawJson ? (
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                                />
+                              ) : (
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+                                />
+                              )}
+                            </svg>
+                            {showRawJson ? 'Form' : 'JSON'}
+                          </button>
+                        </div>
+
+                        {showRawJson ? (
+                          <textarea
+                            value={bodyJson}
+                            onChange={(e) => setBodyJson(e.target.value)}
+                            rows={Math.max(4, Object.keys(inputSchema.properties).length * 2 + 2)}
+                            className="mb-0 w-full rounded-xl border border-cyan-500/10 bg-[var(--space-dark)] px-4 py-3 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-cyan-500/40 focus:outline-none transition"
+                            placeholder='{"key": "value"}'
+                          />
+                        ) : (
+                          <div className="space-y-3">
+                            {Object.entries(inputSchema.properties).map(([key, schema]) => {
+                              const isRequired = inputSchema.required?.includes(key);
+                              return (
+                                <div
+                                  key={key}
+                                  className="rounded-xl bg-cyan-500/5 border border-cyan-500/10 p-3"
+                                >
+                                  <label className="mb-1.5 flex items-center gap-1.5 text-xs">
+                                    <code className="text-cyan-400 font-mono font-semibold">
+                                      {key}
+                                    </code>
+                                    <span className="text-neutral-600">{schema.type}</span>
+                                    {isRequired && (
+                                      <span className="text-red-400 text-[10px] font-bold">
+                                        required
+                                      </span>
+                                    )}
+                                  </label>
+                                  {schema.description && (
+                                    <p className="mb-2 text-[11px] text-neutral-500">
+                                      {schema.description}
+                                    </p>
+                                  )}
+                                  {schema.type === 'boolean' ? (
+                                    <button
+                                      onClick={() => handleFormValueChange(key, !formValues[key])}
+                                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                                        formValues[key] ? 'bg-cyan-600' : 'bg-neutral-700'
+                                      }`}
+                                    >
+                                      <span
+                                        className={`inline-block h-4 w-4 rounded-full bg-white transition transform ${
+                                          formValues[key] ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
+                                      />
+                                    </button>
+                                  ) : schema.enum ? (
+                                    <select
+                                      value={formValues[key] || ''}
+                                      onChange={(e) => handleFormValueChange(key, e.target.value)}
+                                      className="w-full rounded-lg border border-cyan-500/10 bg-[var(--space-dark)] px-3 py-2 text-sm text-neutral-200 focus:border-cyan-500/40 focus:outline-none transition"
+                                    >
+                                      <option value="">Select...</option>
+                                      {schema.enum.map((opt) => (
+                                        <option key={opt} value={opt}>
+                                          {String(opt)}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : schema.type === 'object' || schema.type === 'array' ? (
+                                    <textarea
+                                      value={formValues[key] || ''}
+                                      onChange={(e) => handleFormValueChange(key, e.target.value)}
+                                      rows={3}
+                                      className="w-full rounded-lg border border-cyan-500/10 bg-[var(--space-dark)] px-3 py-2 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-cyan-500/40 focus:outline-none transition"
+                                      placeholder={schema.type === 'array' ? '[...]' : '{...}'}
+                                    />
+                                  ) : (
+                                    <input
+                                      type={
+                                        schema.type === 'number' || schema.type === 'integer'
+                                          ? 'number'
+                                          : 'text'
+                                      }
+                                      value={formValues[key] ?? ''}
+                                      onChange={(e) => handleFormValueChange(key, e.target.value)}
+                                      className="w-full rounded-lg border border-cyan-500/10 bg-[var(--space-dark)] px-3 py-2 text-sm text-neutral-200 placeholder-neutral-600 focus:border-cyan-500/40 focus:outline-none transition"
+                                      placeholder={
+                                        schema.type === 'number' || schema.type === 'integer'
+                                          ? '0'
+                                          : `Enter ${key}...`
+                                      }
+                                      step={schema.type === 'integer' ? '1' : 'any'}
+                                    />
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {!inputSchema?.properties && (
+                      <div className="mb-4">
+                        <label className="mb-1.5 block text-xs font-semibold text-neutral-500 uppercase tracking-wider">
+                          Request Body (JSON)
+                        </label>
+                        <textarea
+                          value={bodyJson}
+                          onChange={(e) => setBodyJson(e.target.value)}
+                          rows={4}
+                          className="w-full rounded-xl border border-cyan-500/10 bg-[var(--space-dark)] px-4 py-3 font-mono text-sm text-neutral-200 placeholder-neutral-600 focus:border-cyan-500/40 focus:outline-none transition"
+                          placeholder='{"key": "value"}'
+                        />
+                      </div>
+                    )}
+
+                    <motion.button
+                      onClick={handleCallEndpoint}
+                      className="w-full rounded-xl bg-cyan-600 py-3 text-sm font-bold text-white transition hover:bg-cyan-500"
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
+                    >
+                      Send Request
+                    </motion.button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {callResult && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="code-window"
+                  >
+                    <div className="code-window-header">
+                      <div className="code-window-dot bg-red-500/80" />
+                      <div className="code-window-dot bg-yellow-500/80" />
+                      <div className="code-window-dot bg-green-500/80" />
+                      <span className="ml-2 text-xs font-medium text-neutral-500">Response</span>
+                    </div>
+                    <div className="code-window-body max-h-64 overflow-auto">
+                      <pre>
+                        <code
+                          className="hljs language-json"
+                          dangerouslySetInnerHTML={{ __html: resultHighlighted }}
+                        />
+                      </pre>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Log Panel */}
+              <div className="glass-card rounded-2xl p-6 cursor-default">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-neutral-300 flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4 text-neutral-500"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Log
+                  </h3>
+                  {logs.length > 0 && (
+                    <button
+                      onClick={() => setLogs([])}
+                      className="text-xs text-neutral-600 hover:text-neutral-400 transition"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-48 space-y-1 overflow-auto font-mono text-xs">
+                  {logs.length === 0 && (
+                    <p className="text-neutral-600">
+                      No activity yet. Fetch endpoints to get started.
+                    </p>
+                  )}
+                  <AnimatePresence initial={false}>
+                    {logs.map((log) => (
+                      <motion.div
+                        key={log.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex gap-2"
+                      >
+                        <span className="shrink-0 text-neutral-600">{log.time}</span>
+                        <span
+                          className={
+                            log.type === 'error'
+                              ? 'text-red-400'
+                              : log.type === 'success'
+                                ? 'text-green-400'
+                                : 'text-neutral-400'
+                          }
+                        >
+                          {log.message}
+                        </span>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+          </div>
+        </FadeInSection>
+      </div>
+    </section>
+  );
+}
+
 // ─── MCP Tester ─────────────────────────────────────────────────────────────────
 
 function McpTester() {
@@ -1445,7 +2103,7 @@ function McpTester() {
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Connection Panel */}
             <div className="space-y-4">
-              <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
+              <div className="glass-card rounded-2xl p-6 cursor-default">
                 <div className="mb-5 flex items-center gap-2.5">
                   <motion.div
                     className={`h-2.5 w-2.5 rounded-full ${statusConfig[status].color}`}
@@ -1520,8 +2178,7 @@ function McpTester() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="glass-card rounded-2xl p-6"
-                    style={{ cursor: 'default' }}
+                    className="glass-card rounded-2xl p-6 cursor-default"
                   >
                     <h3 className="mb-3 text-sm font-bold text-neutral-300">
                       Available Tools <span className="text-purple-400">({tools.length})</span>
@@ -1568,8 +2225,7 @@ function McpTester() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="glass-card rounded-2xl p-6"
-                    style={{ cursor: 'default' }}
+                    className="glass-card rounded-2xl p-6 cursor-default"
                   >
                     <h3 className="mb-1 text-sm font-bold text-neutral-300">
                       Call: <code className="text-purple-400 font-mono">{selectedTool.name}</code>
@@ -1770,7 +2426,7 @@ function McpTester() {
               </AnimatePresence>
 
               {/* Log Panel */}
-              <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
+              <div className="glass-card rounded-2xl p-6 cursor-default">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-neutral-300 flex items-center gap-2">
                     <svg
@@ -1888,6 +2544,8 @@ export function App() {
         <SecurityBestPractices />
         <div className="section-divider" />
         <McpTester />
+        <div className="section-divider" />
+        <RestTester />
       </main>
       <Footer />
     </div>

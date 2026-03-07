@@ -199,6 +199,32 @@ Tinytest.add('Registry - register with null inputSchema stores null', function (
   test.equal(reg.get('method').inputSchema, null);
 });
 
+// --- outputSchema ---
+
+Tinytest.add('Registry - register with outputSchema stores it', function (test) {
+  const reg = new MethodRegistry();
+  const outputSchema = { type: 'object', properties: { id: { type: 'number' } } };
+  reg.register('method', { outputSchema });
+  test.equal(reg.get('method').outputSchema, outputSchema);
+});
+
+Tinytest.add('Registry - register without outputSchema stores null', function (test) {
+  const reg = new MethodRegistry();
+  reg.register('method', { description: 'No output' });
+  test.equal(reg.get('method').outputSchema, null);
+});
+
+Tinytest.add('Registry - register with both schemas stores both', function (test) {
+  const reg = new MethodRegistry();
+  const inputSchema = { type: 'object', properties: { name: { type: 'string' } } };
+  const outputSchema = { type: 'object', properties: { id: { type: 'number' } } };
+  reg.register('method', { inputSchema, outputSchema });
+
+  const entry = reg.get('method');
+  test.equal(entry.inputSchema, inputSchema);
+  test.equal(entry.outputSchema, outputSchema);
+});
+
 Tinytest.add('Registry - register with no options uses defaults', function (test) {
   const reg = new MethodRegistry();
   reg.register('default.method');

@@ -10,10 +10,17 @@ Wormhole.init({
   mode: 'all',
   path: '/mcp',
   name: 'test-app',
-  version: '0.1.0',
+  version: '0.2.0',
   exclude: [/^admin\./],
   // Optionally require an API key:
   // apiKey: 'my-secret-key',
+
+  // REST API + OpenAPI spec + Swagger UI
+  rest: {
+    enabled: true,
+    path: '/api',
+    docs: true,
+  },
 });
 
 // --- Explicitly expose methods with rich schemas (opt-in style) ---
