@@ -1515,7 +1515,7 @@ function RestTester() {
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Connection Panel */}
             <div className="space-y-4">
-              <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
+              <div className="glass-card rounded-2xl p-6 cursor-default">
                 <div className="mb-5 flex items-center gap-2.5">
                   <motion.div
                     className={`h-2.5 w-2.5 rounded-full ${statusConfig[status].color}`}
@@ -1577,8 +1577,7 @@ function RestTester() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="glass-card rounded-2xl p-6"
-                    style={{ cursor: 'default' }}
+                    className="glass-card rounded-2xl p-6 cursor-default"
                   >
                     <h3 className="mb-3 text-sm font-bold text-neutral-300">
                       Endpoints <span className="text-cyan-400">({endpoints.length})</span>
@@ -1619,8 +1618,7 @@ function RestTester() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="glass-card rounded-2xl p-6"
-                    style={{ cursor: 'default' }}
+                    className="glass-card rounded-2xl p-6 cursor-default"
                   >
                     <h3 className="mb-1 text-sm font-bold text-neutral-300">
                       <code className="text-cyan-400 font-mono">{selectedEndpoint.endpoint}</code>
@@ -1818,7 +1816,7 @@ function RestTester() {
               </AnimatePresence>
 
               {/* Log Panel */}
-              <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
+              <div className="glass-card rounded-2xl p-6 cursor-default">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-neutral-300 flex items-center gap-2">
                     <svg
@@ -2105,7 +2103,7 @@ function McpTester() {
           <div className="grid gap-6 lg:grid-cols-2">
             {/* Connection Panel */}
             <div className="space-y-4">
-              <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
+              <div className="glass-card rounded-2xl p-6 cursor-default">
                 <div className="mb-5 flex items-center gap-2.5">
                   <motion.div
                     className={`h-2.5 w-2.5 rounded-full ${statusConfig[status].color}`}
@@ -2180,8 +2178,7 @@ function McpTester() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="glass-card rounded-2xl p-6"
-                    style={{ cursor: 'default' }}
+                    className="glass-card rounded-2xl p-6 cursor-default"
                   >
                     <h3 className="mb-3 text-sm font-bold text-neutral-300">
                       Available Tools <span className="text-purple-400">({tools.length})</span>
@@ -2228,8 +2225,7 @@ function McpTester() {
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
-                    className="glass-card rounded-2xl p-6"
-                    style={{ cursor: 'default' }}
+                    className="glass-card rounded-2xl p-6 cursor-default"
                   >
                     <h3 className="mb-1 text-sm font-bold text-neutral-300">
                       Call: <code className="text-purple-400 font-mono">{selectedTool.name}</code>
@@ -2430,7 +2426,7 @@ function McpTester() {
               </AnimatePresence>
 
               {/* Log Panel */}
-              <div className="glass-card rounded-2xl p-6" style={{ cursor: 'default' }}>
+              <div className="glass-card rounded-2xl p-6 cursor-default">
                 <div className="mb-3 flex items-center justify-between">
                   <h3 className="text-sm font-bold text-neutral-300 flex items-center gap-2">
                     <svg

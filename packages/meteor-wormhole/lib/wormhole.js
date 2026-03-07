@@ -37,6 +37,8 @@ class WormholeManager {
    * @param {string} [options.rest.path='/api'] - Base path for REST endpoints
    * @param {boolean} [options.rest.docs=true] - Serve Swagger UI at <path>/docs
    * @param {string|null} [options.rest.apiKey] - API key for REST (defaults to main apiKey)
+   * @returns {void}
+   * @throws {Error} If Wormhole is already initialized
    */
   init(options = {}) {
     if (this._initialized) {
@@ -148,7 +150,7 @@ class WormholeManager {
       this._bridge.stop();
     }
     if (this._restBridge) {
-      this._restBridge.stop();
+      this._restBridge.destroy();
     }
     removeHook();
     this._registry.clear();

@@ -93,7 +93,7 @@ export class RestBridge {
    * @param {string} [options.name='meteor-wormhole'] - API name
    * @param {string} [options.version='1.0.0'] - API version
    * @param {string|null} [options.apiKey=null] - Bearer token for auth
-   * @param {boolean} [options.docs=true] - Whether to serve Swagger UI
+   * @param {boolean} [options.docs] - Whether to serve Swagger UI (enabled unless explicitly `false`)
    */
   constructor(registry, options) {
     this._registry = registry;
@@ -137,11 +137,28 @@ export class RestBridge {
   }
 
   /**
-   * Stop the REST bridge.
+   * Stop the REST bridge and unsubscribe from registry changes.
+   * Safe to call multiple times.
    * @returns {void}
    */
   stop() {
     this._started = false;
+    if (this._unsubscribe) {
+      this._unsubscribe();
+      this._unsubscribe = null;
+    }
+  }
+
+  /**
+   * Destroy the REST bridge instance.
+   * Stops the bridge, removes registry listeners, and clears internal state.
+   * Intended for use by higher-level lifecycle management (e.g., Wormhole._reset).
+   * Safe to call multiple times.
+   * @returns {void}
+   */
+  destroy() {
+    this.stop();
+    this._routeMap.clear();
   }
 
   /**
@@ -179,13 +196,20 @@ export class RestBridge {
 
     // GET /openapi.json — serve OpenAPI spec
     if (req.method === 'GET' && url === '/openapi.json') {
-      const spec = generateOpenApiSpec(this._registry, {
-        name: this._options.name,
-        version: this._options.version,
-        restPath: basePath,
-        apiKey: this._options.apiKey,
-      });
-      sendJson(res, 200, spec);
+      try {
+        const spec = generateOpenApiSpec(this._registry, {
+          name: this._options.name,
+          version: this._options.version,
+          restPath: basePath,
+          apiKey: this._options.apiKey,
+        });
+        sendJson(res, 200, spec);
+      } catch (err) {
+        sendJson(res, 500, {
+          error: 'openapi-generation-failed',
+          message: err?.message || 'Failed to generate OpenAPI spec',
+        });
+      }
       return;
     }
 

@@ -3,6 +3,8 @@ import { Tinytest } from 'meteor/tinytest';
 import { RestBridge } from '../lib/rest-bridge';
 import { MethodRegistry } from '../lib/registry';
 
+const BASE_URL = Meteor.absoluteUrl().replace(/\/$/, '');
+
 // Helper: create a fresh registry
 function freshRegistry() {
   return new MethodRegistry();
@@ -107,7 +109,7 @@ Tinytest.addAsync('RestBridge - GET /openapi.json returns spec', async function 
   bridge.start();
 
   try {
-    const res = await fetch('http://localhost:3000/test-rest-spec/openapi.json');
+    const res = await fetch(`${BASE_URL}/test-rest-spec/openapi.json`);
     test.equal(res.status, 200);
     test.equal(res.headers.get('content-type'), 'application/json');
 
@@ -130,7 +132,7 @@ Tinytest.addAsync('RestBridge - GET /docs returns HTML', async function (test) {
   bridge.start();
 
   try {
-    const res = await fetch('http://localhost:3000/test-rest-docs/docs');
+    const res = await fetch(`${BASE_URL}/test-rest-docs/docs`);
     test.equal(res.status, 200);
     test.equal(res.headers.get('content-type'), 'text/html');
 
@@ -151,7 +153,7 @@ Tinytest.addAsync('RestBridge - GET /docs returns 404 when docs disabled', async
   bridge.start();
 
   try {
-    const res = await fetch('http://localhost:3000/test-rest-nodocs/docs');
+    const res = await fetch(`${BASE_URL}/test-rest-nodocs/docs`);
     test.equal(res.status, 404);
 
     const body = await res.json();
@@ -169,7 +171,7 @@ Tinytest.addAsync('RestBridge - GET / lists endpoints', async function (test) {
   bridge.start();
 
   try {
-    const res = await fetch('http://localhost:3000/test-rest-list/');
+    const res = await fetch(`${BASE_URL}/test-rest-list/`);
     test.equal(res.status, 200);
 
     const body = await res.json();
@@ -194,7 +196,7 @@ Tinytest.addAsync('RestBridge - POST to unknown route returns 404', async functi
   bridge.start();
 
   try {
-    const res = await fetch('http://localhost:3000/test-rest-404/nonexistent_method', {
+    const res = await fetch(`${BASE_URL}/test-rest-404/nonexistent_method`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -214,7 +216,7 @@ Tinytest.addAsync('RestBridge - POST without route name returns 404', async func
   bridge.start();
 
   try {
-    const res = await fetch('http://localhost:3000/test-rest-noname/', {
+    const res = await fetch(`${BASE_URL}/test-rest-noname/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -236,7 +238,7 @@ Tinytest.addAsync('RestBridge - API key rejects unauthorized requests', async fu
 
   try {
     // Request without auth header
-    const res1 = await fetch('http://localhost:3000/test-rest-auth/auth_test', {
+    const res1 = await fetch(`${BASE_URL}/test-rest-auth/auth_test`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -244,7 +246,7 @@ Tinytest.addAsync('RestBridge - API key rejects unauthorized requests', async fu
     test.equal(res1.status, 401);
 
     // Request with wrong auth header
-    const res2 = await fetch('http://localhost:3000/test-rest-auth/auth_test', {
+    const res2 = await fetch(`${BASE_URL}/test-rest-auth/auth_test`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -269,11 +271,11 @@ Tinytest.addAsync('RestBridge - API key allows docs/spec without auth', async fu
 
   try {
     // Spec should be accessible without auth
-    const specRes = await fetch('http://localhost:3000/test-rest-authdocs/openapi.json');
+    const specRes = await fetch(`${BASE_URL}/test-rest-authdocs/openapi.json`);
     test.equal(specRes.status, 200);
 
     // Docs should be accessible without auth
-    const docsRes = await fetch('http://localhost:3000/test-rest-authdocs/docs');
+    const docsRes = await fetch(`${BASE_URL}/test-rest-authdocs/docs`);
     test.equal(docsRes.status, 200);
   } finally {
     bridge.stop();
@@ -287,13 +289,13 @@ Tinytest.addAsync('RestBridge - spec reflects current registry state', async fun
 
   try {
     // Initially empty
-    const res1 = await fetch('http://localhost:3000/test-rest-dynamic/openapi.json');
+    const res1 = await fetch(`${BASE_URL}/test-rest-dynamic/openapi.json`);
     const spec1 = await res1.json();
     test.equal(Object.keys(spec1.paths).length, 0);
 
     // Register a method
     registry.register('dynamic.method', { description: 'Added dynamically' });
-    const res2 = await fetch('http://localhost:3000/test-rest-dynamic/openapi.json');
+    const res2 = await fetch(`${BASE_URL}/test-rest-dynamic/openapi.json`);
     const spec2 = await res2.json();
     test.equal(Object.keys(spec2.paths).length, 1);
     test.isTrue('/dynamic_method' in spec2.paths);
@@ -320,7 +322,7 @@ Tinytest.addAsync(
     bridge.start();
 
     try {
-      const res = await fetch('http://localhost:3000/test-rest-invoke/restTest_echo', {
+      const res = await fetch(`${BASE_URL}/test-rest-invoke/restTest_echo`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: 'hello' }),
@@ -344,7 +346,7 @@ Tinytest.addAsync(
     bridge.start();
 
     try {
-      const res = await fetch('http://localhost:3000/test-rest-generic/restTest_generic', {
+      const res = await fetch(`${BASE_URL}/test-rest-generic/restTest_generic`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ args: ['a', 'b', 'c'] }),
@@ -377,7 +379,7 @@ Tinytest.addAsync('RestBridge - POST with valid API key succeeds', async functio
   bridge.start();
 
   try {
-    const res = await fetch('http://localhost:3000/test-rest-authok/restTest_echo', {
+    const res = await fetch(`${BASE_URL}/test-rest-authok/restTest_echo`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -401,7 +403,7 @@ Tinytest.addAsync('RestBridge - POST with invalid JSON body returns 400', async 
   bridge.start();
 
   try {
-    const res = await fetch('http://localhost:3000/test-rest-badjson/restTest_echo', {
+    const res = await fetch(`${BASE_URL}/test-rest-badjson/restTest_echo`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: '{not valid json',
@@ -422,7 +424,7 @@ Tinytest.addAsync('RestBridge - POST propagates Meteor.Error', async function (t
   bridge.start();
 
   try {
-    const res = await fetch('http://localhost:3000/test-rest-merror/restTest_meteorError', {
+    const res = await fetch(`${BASE_URL}/test-rest-merror/restTest_meteorError`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -444,7 +446,7 @@ Tinytest.addAsync('RestBridge - POST returns 500 on generic error', async functi
   bridge.start();
 
   try {
-    const res = await fetch('http://localhost:3000/test-rest-generr/restTest_genericError', {
+    const res = await fetch(`${BASE_URL}/test-rest-generr/restTest_genericError`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
@@ -468,7 +470,7 @@ Tinytest.addAsync(
     bridge.start();
 
     try {
-      const res = await fetch('http://localhost:3000/test-rest-empty/restTest_generic', {
+      const res = await fetch(`${BASE_URL}/test-rest-empty/restTest_generic`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });

@@ -10,6 +10,7 @@ import { sanitizeToolName } from './mcp-bridge';
  * @param {string|null} [options.apiKey=null] - Whether API key auth is enabled
  * @param {string} [options.description] - API description
  * @returns {object} OpenAPI 3.1.0 specification object
+ * @throws {Error} If two method names sanitize to the same route (path key collision)
  */
 export function generateOpenApiSpec(registry, options = {}) {
   const name = options.name || 'meteor-wormhole';
