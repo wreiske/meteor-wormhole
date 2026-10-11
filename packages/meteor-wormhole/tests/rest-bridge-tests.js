@@ -702,7 +702,7 @@ Tinytest.addAsync(
       });
       test.equal(ok.status, 200);
       const spec = await ok.json();
-      test.equal(spec.components.securitySchemes.bearerAuth.scheme, 'bearer');
+      test.equal(spec.components.securitySchemes.sessionAuth.scheme, 'bearer');
     } finally {
       hidden.stop();
       gated.stop();

@@ -297,3 +297,61 @@ Tinytest.add('McpBridge - stop clears all sessions', function (test) {
   bridge.stop();
   test.equal(bridge.activeSessions, 0);
 });
+
+/** Minimal stand-in for McpServer that records registered tools. */
+function fakeMcpServer() {
+  const tools = new Map();
+  return {
+    tools,
+    registerTool(name, _meta, handler) {
+      tools.set(name, handler);
+    },
+  };
+}
+
+Tinytest.add(
+  'McpBridge - anonymous sessions behind an apiKey see only public tools',
+  function (test) {
+    const registry = new MethodRegistry();
+    registry.register('login.withCode', { auth: 'none' });
+    registry.register('users.me', { auth: 'required' });
+    registry.register('feed.list', { auth: 'optional' });
+    const bridge = new McpBridge(registry, { apiKey: 'k', name: 't', version: '1' });
+
+    test.isTrue(bridge._hasPublicTools());
+    const everything = fakeMcpServer();
+    bridge._registerToolsOnServer(everything);
+    test.equal([...everything.tools.keys()].sort(), ['feed_list', 'login_withCode', 'users_me']);
+
+    const publicOnly = fakeMcpServer();
+    bridge._registerToolsOnServer(publicOnly, { publicOnly: true });
+    test.equal([...publicOnly.tools.keys()], ['login_withCode']);
+
+    registry.unregister('login.withCode');
+    test.isFalse(bridge._hasPublicTools());
+  },
+);
+
+Tinytest.addAsync(
+  'McpBridge - tool calls use the current registry entry, not the one captured at session start',
+  async function (test) {
+    const registry = new MethodRegistry();
+    registry.register('mcpLive.thing', { auth: 'optional' });
+    const bridge = new McpBridge(registry, { apiKey: null, name: 't', version: '1' });
+    const server = fakeMcpServer();
+    bridge._registerToolsOnServer(server);
+    const handler = server.tools.get('mcpLive_thing');
+
+    // Tightened after the session registered its tools: anonymous callers are now rejected
+    registry.register('mcpLive.thing', { auth: 'required' });
+    const denied = await handler({ args: [] });
+    test.isTrue(denied.isError);
+    test.matches(denied.content[0].text, /unauthorized/);
+
+    // Unexposed entirely: the stale tool reports not-found instead of invoking
+    registry.unregister('mcpLive.thing');
+    const gone = await handler({ args: [] });
+    test.isTrue(gone.isError);
+    test.matches(gone.content[0].text, /not-found/);
+  },
+);

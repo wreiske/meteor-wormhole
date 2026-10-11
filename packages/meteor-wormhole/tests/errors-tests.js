@@ -44,6 +44,9 @@ Tinytest.add('Errors - well-known reason slugs map to statuses', function (test)
     ['rate-limited', 429],
     ['too-many-requests', 429],
     ['some-app-error', 400],
+    // `missing-*` is a validation failure, not a missing resource
+    ['missing-id', 400],
+    ['missing-argument', 400],
   ];
   for (const [code, expected] of cases) {
     const { status, body } = errorToHttp(new Meteor.Error(code, `reason for ${code}`));

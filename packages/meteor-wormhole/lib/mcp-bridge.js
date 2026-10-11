@@ -167,16 +167,28 @@ export class McpBridge {
       tokenResolver: this._options.tokenResolver,
     });
     const denied = checkAccess(auth, 'optional', { apiKey: this._options.apiKey });
-    if (denied) {
+    // An anonymous caller behind the apiKey gate may still open a session that
+    // sees only `auth: 'none'` tools (login methods), matching the REST bridge.
+    // Invalid credentials and anonymous callers with nothing public to call are
+    // rejected before any session or tool list is exposed.
+    const publicOnly = !!denied && auth.kind === 'none';
+    if (denied && (!publicOnly || !this._hasPublicTools())) {
       res.writeHead(401, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32600, message: 'Unauthorized' } }));
       return;
     }
 
-    return currentRequest.withValue({ req, auth }, () => this._dispatch(req, res));
+    return currentRequest.withValue({ req, auth }, () => this._dispatch(req, res, { publicOnly }));
   }
 
-  async _dispatch(req, res) {
+  _hasPublicTools() {
+    for (const [, config] of this._registry.getAll()) {
+      if (config.auth === 'none') return true;
+    }
+    return false;
+  }
+
+  async _dispatch(req, res, { publicOnly = false } = {}) {
     const sessionId = req.headers['mcp-session-id'];
 
     if (req.method === 'POST') {
@@ -188,7 +200,7 @@ export class McpBridge {
         await entry.transport.handleRequest(req, res, body);
       } else if (!sessionId) {
         // New session initialization
-        const { server, transport } = this._createSession();
+        const { server, transport } = this._createSession({ publicOnly });
         await server.connect(transport);
 
         if (transport.sessionId) {
@@ -230,13 +242,13 @@ export class McpBridge {
     }
   }
 
-  _createSession() {
+  _createSession({ publicOnly = false } = {}) {
     const server = new McpServer(
       { name: this._options.name, version: this._options.version },
       { capabilities: { tools: { listChanged: true } } },
     );
 
-    this._registerToolsOnServer(server);
+    this._registerToolsOnServer(server, { publicOnly });
 
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
@@ -251,10 +263,18 @@ export class McpBridge {
     return { server, transport };
   }
 
-  _registerToolsOnServer(mcpServer) {
+  /**
+   * Register the exposed methods as tools on an MCP server.
+   * @param {object} mcpServer
+   * @param {object} [options]
+   * @param {boolean} [options.publicOnly=false] - only register `auth: 'none'` tools
+   *   (sessions opened by anonymous callers behind the apiKey gate)
+   */
+  _registerToolsOnServer(mcpServer, { publicOnly = false } = {}) {
     const methods = this._registry.getAll();
 
     for (const [methodName, config] of methods) {
+      if (publicOnly && config.auth !== 'none') continue;
       const toolName = sanitizeToolName(methodName);
       const hasExplicitSchema = !!config.inputSchema;
 
@@ -270,7 +290,16 @@ export class McpBridge {
         },
         async (params) => {
           const ctx = currentRequest.get() || { req: null, auth: { kind: 'none', userId: null } };
-          const policy = config.auth || 'optional';
+          // Read the registry on every call: the policy may have been tightened
+          // (or the method unexposed) after this session registered its tools.
+          const current = this._registry.get(methodName);
+          if (!current) {
+            return {
+              content: [{ type: 'text', text: `not-found: ${methodName} is no longer exposed` }],
+              isError: true,
+            };
+          }
+          const policy = current.auth || 'optional';
           const denied = checkAccess(ctx.auth, policy, { apiKey: this._options.apiKey });
           if (denied) {
             return {

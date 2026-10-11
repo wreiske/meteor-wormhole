@@ -334,7 +334,12 @@ interface WormholePlugin<TContext = Record<string, unknown>> {
 - Plugins start in registration order; a plugin that throws (or rejects) during
   `start()` is logged and skipped without taking down the others.
 - On `Wormhole._reset()` the host calls each plugin's `stop()` in **reverse**
-  order.
+  order, awaiting each one (and any `start()` still in flight) before the next.
+  Host state is cleared synchronously so `init()` can run again immediately;
+  `_reset()` returns a promise that settles when every `stop()` has finished.
+- A plugin whose async `start()` resolves after the host stopped is stopped
+  again right away, and its stale `api.mount()` throws instead of leaking a
+  handler into the next generation.
 - Registering two plugins with the same `name` throws.
 
 ### `sanitizeToolName(name)`
@@ -460,7 +465,9 @@ REST responses map thrown errors to statuses instead of a blanket `500`:
 | any other `Meteor.Error`                                                             | `400`                                |
 | any other error                                                                      | `500` (message hidden in production) |
 
-The body is always `{ error, reason, message, details? }`.
+The body is `{ error, message }`; `reason` is added for `Meteor.Error` / `Match.Error` responses and
+`details` when the thrown `Meteor.Error` carried one. Generic `500` and credential rejections
+carry only `error` and `message`.
 
 ### Disabling the MCP transport
 
@@ -473,6 +480,16 @@ reachable anonymously and Wormhole logs a warning at startup.
 `rest.spec` controls `<path>/openapi.json`: `true` (default), `false`, or `'auth'` to require
 an API key or user token. Each operation carries `x-meteor-method` and `x-wormhole-auth`, and
 `security` reflects the method's policy, so generated clients know which calls need a token.
+The spec declares two bearer schemes: `bearerAuth` (the service API key) and `sessionAuth` (a
+Meteor login token). `auth: 'required'` operations reference only `sessionAuth`, because an API
+key is rejected there with `401`.
+
+### Client address behind proxies
+
+`this.connection.clientAddress` follows Meteor's own trust model: set `HTTP_FORWARDED_COUNT` to
+the number of proxies in front of the app and the matching `X-Forwarded-For` entry is used;
+without it the socket address is reported. Proxy headers are never trusted blindly, so an
+IP-based limiter in `onBeforeInvoke` cannot be bypassed by a spoofed header.
 
 ## Additional API
 

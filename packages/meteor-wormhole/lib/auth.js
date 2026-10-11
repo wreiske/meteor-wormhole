@@ -13,22 +13,32 @@ export function extractBearer(req) {
 }
 
 /**
- * Best-effort client IP (honours common proxy headers).
+ * Client IP using the same trust model as Meteor's DDP server: proxy headers
+ * are only honoured when `HTTP_FORWARDED_COUNT` says how many trusted proxies
+ * sit in front of the app, otherwise the socket address is used. Taking the
+ * first `X-Forwarded-For` entry unconditionally would let any caller spoof
+ * its address (and bypass IP-based rate limits in `onBeforeInvoke`).
+ *
  * @param {import('http').IncomingMessage} req
+ * @param {object} [options]
+ * @param {number} [options.forwardedCount] - trusted proxy count (defaults to
+ *   `process.env.HTTP_FORWARDED_COUNT`)
  * @returns {string|null}
  */
-export function getClientAddress(req) {
-  const headers = req?.headers || {};
-  const cf = headers['cf-connecting-ip'];
-  if (cf) return Array.isArray(cf) ? cf[0] : cf;
-  const forwarded = headers['x-forwarded-for'];
-  if (forwarded) {
-    const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
-    return raw.split(',')[0].trim();
-  }
-  const real = headers['x-real-ip'];
-  if (real) return Array.isArray(real) ? real[0] : real;
-  return req?.socket?.remoteAddress || null;
+export function getClientAddress(req, options = {}) {
+  const forwardedCount =
+    options.forwardedCount !== undefined
+      ? Number(options.forwardedCount) || 0
+      : parseInt(process.env.HTTP_FORWARDED_COUNT, 10) || 0;
+  const socketAddress = req?.socket?.remoteAddress || null;
+  if (forwardedCount <= 0) return socketAddress;
+
+  const header = req?.headers?.['x-forwarded-for'];
+  const raw = Array.isArray(header) ? header.join(',') : header;
+  if (typeof raw !== 'string' || raw.trim() === '') return null;
+  const chain = raw.trim().split(/\s*,\s*/);
+  if (chain.length < forwardedCount) return null;
+  return chain[chain.length - forwardedCount];
 }
 
 /**

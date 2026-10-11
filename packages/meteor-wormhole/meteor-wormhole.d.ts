@@ -107,7 +107,8 @@ declare module 'meteor/wreiske:meteor-wormhole' {
     readonly registry: MethodRegistry;
     readonly initialized: boolean;
     readonly options: WormholeInitOptions;
-    _reset(): void;
+    /** Clears state synchronously; resolves once every plugin's `stop()` has finished. */
+    _reset(): Promise<void>;
   }
 
   export const Wormhole: WormholeManager;
@@ -127,6 +128,19 @@ declare module 'meteor/wreiske:meteor-wormhole' {
   ): object;
 
   export function sanitizeToolName(name: string): string;
+
+  /** DDP-connection-like object built from an HTTP request (`clientAddress`, `httpHeaders`, `wormhole: true`). */
+  interface WormholeConnection {
+    id: null;
+    close(): void;
+    onClose(): void;
+    clientAddress: string | null;
+    httpHeaders: Record<string, string | string[] | undefined>;
+    wormhole: true;
+  }
+
+  /** Build the `this.connection` object used by `invokeMethod` for a request (null without one). */
+  export function connectionFromRequest(req: IncomingMessage | null): WormholeConnection | null;
 
   /** Invoke a Meteor method server-side as `userId` (sets `this.userId` / `this.connection`). */
   export function invokeMethod(
@@ -163,18 +177,46 @@ declare module 'meteor/wreiske:meteor-wormhole' {
     users?: unknown;
   }): (token: string) => Promise<string | null>;
 
+  interface NormalizedAuthOptions {
+    enabled: boolean;
+    resolveUser: ((req: IncomingMessage) => Promise<string | null> | string | null) | null;
+  }
+
+  interface RestBridgeOptions {
+    restPath?: string;
+    name?: string;
+    version?: string;
+    apiKey?: string | null;
+    docs?: boolean;
+    /** `true` (default), `false`, or `'auth'` (apiKey or session required) for `/openapi.json`. */
+    spec?: boolean | 'auth';
+    /** Normalized session-auth options (as produced by `Wormhole.init`). */
+    auth?: NormalizedAuthOptions;
+    /** `(token) => userId | null`, used when `auth` is enabled without a custom resolver. */
+    tokenResolver?: (token: string) => Promise<string | null>;
+    onBeforeInvoke?: (info: InvokeHookInfo) => void | Promise<void>;
+    /** Hide internal error messages in 500 responses (defaults to `Meteor.isProduction`). */
+    production?: boolean;
+  }
+
   export class RestBridge {
-    constructor(
-      registry: unknown,
-      options?: {
-        restPath?: string;
-        name?: string;
-        version?: string;
-        apiKey?: string | null;
-        docs?: boolean;
-      },
-    );
+    constructor(registry: unknown, options?: RestBridgeOptions);
     start(): void;
+    stop(): void;
     destroy(): void;
+  }
+
+  /** Host for Wormhole plugins (`Wormhole.use` delegates here). */
+  export class PluginHost {
+    use(plugin: WormholePlugin): void;
+    startAll(api: {
+      registry: MethodRegistry;
+      options: WormholeInitOptions;
+      context: Record<string, unknown>;
+      auth?: { resolve(req: IncomingMessage): Promise<ResolvedAuth> };
+    }): void;
+    /** Clears host state synchronously; resolves once pending starts and all `stop()`s finish. */
+    stopAll(): Promise<void>;
+    names(): string[];
   }
 }

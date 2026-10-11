@@ -295,4 +295,8 @@ Tinytest.add('Registry - register stores auth policy with optional default', fun
   test.equal(registry.get('a').auth, 'optional');
   test.equal(registry.get('b').auth, 'required');
   test.throws(() => registry.register('c', { auth: 'always' }), /Invalid auth policy/);
+  // Falsy but present values are malformed too — only an absent option defaults
+  test.throws(() => registry.register('d', { auth: '' }), /Invalid auth policy/);
+  test.throws(() => registry.register('e', { auth: null }), /Invalid auth policy/);
+  test.throws(() => registry.register('f', { auth: false }), /Invalid auth policy/);
 });

@@ -33,23 +33,33 @@ export function generateOpenApiSpec(registry, options = {}) {
     paths: {},
   };
 
-  // Add security scheme if API key or session auth is configured
+  // Security schemes: `bearerAuth` is the service API key, `sessionAuth` a
+  // Meteor login token. Both travel as `Authorization: Bearer`, but they are
+  // modelled separately because `auth: 'required'` operations accept only a
+  // user session — an API key gets 401 there.
   const hasAuth = !!(options.apiKey || options.sessionAuth);
+  const apiKeyRequirement = { bearerAuth: [] };
+  const sessionRequirement = { sessionAuth: [] };
   if (hasAuth) {
-    const parts = [];
-    if (options.apiKey) parts.push('API key');
-    if (options.sessionAuth) parts.push('Meteor login token (signed-in user)');
-    spec.components = {
-      securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          description: `${parts.join(' or ')} passed as a Bearer token`,
-        },
-      },
-    };
+    const securitySchemes = {};
     if (options.apiKey) {
-      spec.security = [{ bearerAuth: [] }];
+      securitySchemes.bearerAuth = {
+        type: 'http',
+        scheme: 'bearer',
+        description: 'Service API key passed as a Bearer token',
+      };
+    }
+    if (options.sessionAuth) {
+      securitySchemes.sessionAuth = {
+        type: 'http',
+        scheme: 'bearer',
+        description: 'Meteor login token of a signed-in user passed as a Bearer token',
+      };
+    }
+    spec.components = { securitySchemes };
+    if (options.apiKey) {
+      spec.security = [apiKeyRequirement];
+      if (options.sessionAuth) spec.security.push(sessionRequirement);
     }
   }
 
@@ -136,6 +146,10 @@ export function generateOpenApiSpec(registry, options = {}) {
           description: 'Not found — unknown route or the method reported not-found',
           content: { 'application/json': { schema: errorSchema() } },
         },
+        409: {
+          description: 'Conflict — the method reported already-exists / account-exists',
+          content: { 'application/json': { schema: errorSchema() } },
+        },
         429: {
           description: 'Rate limited',
           content: { 'application/json': { schema: errorSchema() } },
@@ -192,11 +206,17 @@ export function generateOpenApiSpec(registry, options = {}) {
     if (hasAuth) {
       if (policy === 'none') {
         operation.security = [];
-      } else if (policy === 'required' || options.apiKey) {
-        operation.security = [{ bearerAuth: [] }];
+      } else if (policy === 'required') {
+        // Only a signed-in user satisfies 'required'; an API key is rejected.
+        operation.security = options.sessionAuth ? [sessionRequirement] : [];
+      } else if (options.apiKey) {
+        // optional behind an apiKey gate: service key or (when enabled) a user session
+        operation.security = options.sessionAuth
+          ? [apiKeyRequirement, sessionRequirement]
+          : [apiKeyRequirement];
       } else {
-        // optional: anonymous or authenticated
-        operation.security = [{}, { bearerAuth: [] }];
+        // optional without a gate: anonymous or authenticated
+        operation.security = [{}, sessionRequirement];
       }
     }
 

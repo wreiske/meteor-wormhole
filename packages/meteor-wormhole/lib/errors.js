@@ -5,7 +5,7 @@ const REASON_STATUS = [
   [/^(not-authorized|forbidden|permission-denied)$/, 403],
   [/^(unauthorized|not-logged-in|login-required|session-expired|invalid-code|invalid-token)$/, 401],
   [/-login-failed$/, 401],
-  [/^(not-found|no-such-|missing-)|-not-found$/, 404],
+  [/^(not-found|no-such-)|-not-found$/, 404],
   [/^(already-exists|account-exists|conflict|duplicate)/, 409],
   [/^(rate-limited|too-many-requests)$/, 429],
 ];

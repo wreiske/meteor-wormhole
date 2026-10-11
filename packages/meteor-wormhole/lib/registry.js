@@ -21,7 +21,7 @@ export class MethodRegistry {
    *   user through when present, `'none'` always invokes anonymously (login methods).
    */
   register(name, options = {}) {
-    const auth = options.auth || 'optional';
+    const auth = options.auth === undefined ? 'optional' : options.auth;
     if (!AUTH_POLICIES.includes(auth)) {
       throw new Error(
         `Invalid auth policy '${auth}' for method '${name}' (expected one of ${AUTH_POLICIES.join(', ')})`,

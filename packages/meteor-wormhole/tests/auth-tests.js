@@ -8,6 +8,19 @@ import {
   getClientAddress,
 } from '../lib/auth';
 
+/** Run `fn` with HTTP_FORWARDED_COUNT set to `value` (undefined = unset), then restore it */
+function withForwardedCount(value, fn) {
+  const previous = process.env.HTTP_FORWARDED_COUNT;
+  if (value === undefined) delete process.env.HTTP_FORWARDED_COUNT;
+  else process.env.HTTP_FORWARDED_COUNT = value;
+  try {
+    return fn();
+  } finally {
+    if (previous === undefined) delete process.env.HTTP_FORWARDED_COUNT;
+    else process.env.HTTP_FORWARDED_COUNT = previous;
+  }
+}
+
 const req = (headers = {}, extra = {}) => ({
   headers,
   socket: { remoteAddress: '10.0.0.9' },
@@ -30,15 +43,51 @@ Tinytest.add('Auth - extractBearer returns null without a Bearer header', functi
 
 // --- getClientAddress ---
 
-Tinytest.add('Auth - getClientAddress honours proxy headers', function (test) {
-  test.equal(getClientAddress(req({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8' })), '1.2.3.4');
-  test.equal(
-    getClientAddress(req({ 'cf-connecting-ip': '9.9.9.9', 'x-forwarded-for': '1.2.3.4' })),
-    '9.9.9.9',
-  );
-  test.equal(getClientAddress(req({ 'x-real-ip': '8.8.8.8' })), '8.8.8.8');
-  test.equal(getClientAddress(req({})), '10.0.0.9');
-});
+Tinytest.add(
+  'Auth - getClientAddress ignores proxy headers without a trusted proxy count',
+  function (test) {
+    // Same trust model as Meteor's DDP server: a spoofed header must not win.
+    // (`meteor run` sets HTTP_FORWARDED_COUNT=1 for its dev proxy, so unset it here.)
+    withForwardedCount(undefined, () => {
+      test.equal(getClientAddress(req({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8' })), '10.0.0.9');
+      test.equal(getClientAddress(req({ 'cf-connecting-ip': '9.9.9.9' })), '10.0.0.9');
+      test.equal(getClientAddress(req({ 'x-real-ip': '8.8.8.8' })), '10.0.0.9');
+      test.equal(getClientAddress(req({})), '10.0.0.9');
+    });
+    // An explicit count of 0 wins over the environment
+    withForwardedCount('1', () => {
+      test.equal(
+        getClientAddress(req({ 'x-forwarded-for': '1.2.3.4' }), { forwardedCount: 0 }),
+        '10.0.0.9',
+      );
+    });
+  },
+);
+
+Tinytest.add(
+  'Auth - getClientAddress uses the Nth-from-last X-Forwarded-For entry',
+  function (test) {
+    const r = req({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8, 9.9.9.9' });
+    test.equal(getClientAddress(r, { forwardedCount: 1 }), '9.9.9.9');
+    test.equal(getClientAddress(r, { forwardedCount: 2 }), '5.6.7.8');
+    test.equal(getClientAddress(r, { forwardedCount: 3 }), '1.2.3.4');
+    // Fewer hops than trusted proxies, or no header at all → unknown (null), like Meteor
+    test.isNull(getClientAddress(r, { forwardedCount: 4 }));
+    test.isNull(getClientAddress(req({}), { forwardedCount: 1 }));
+  },
+);
+
+Tinytest.add(
+  'Auth - getClientAddress reads HTTP_FORWARDED_COUNT from the environment',
+  function (test) {
+    withForwardedCount('1', () => {
+      test.equal(getClientAddress(req({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8' })), '5.6.7.8');
+    });
+    withForwardedCount('2', () => {
+      test.equal(getClientAddress(req({ 'x-forwarded-for': '1.2.3.4, 5.6.7.8' })), '1.2.3.4');
+    });
+  },
+);
 
 // --- normalizeAuthOptions ---
 

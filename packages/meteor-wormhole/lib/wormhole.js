@@ -144,14 +144,15 @@ class WormholeManager {
 
     // Start any registered plugins (and allow late registration via use()).
     // Clone nested option objects so plugins can't mutate Wormhole's internal
-    // configuration (notably `rest` and `exclude`). `context` is intentionally
-    // shared by reference — it is the app's own object.
+    // configuration (notably `rest`, `mcp`, `auth` and `exclude`). `context` is
+    // intentionally shared by reference — it is the app's own object.
     this._pluginHost.startAll({
       registry: this._registry,
       options: {
         ...this._options,
         rest: { ...this._options.rest },
         mcp: { ...this._options.mcp },
+        auth: { ...this._options.auth },
         exclude: [...this._options.exclude],
       },
       context: this._options.context,
@@ -264,6 +265,12 @@ class WormholeManager {
 
   /**
    * Reset Wormhole state. Primarily for testing.
+   *
+   * State is cleared synchronously so `init()` can be called again right away;
+   * the returned promise settles once every plugin's `stop()` has finished
+   * (see `PluginHost.stopAll`). Await it when a plugin releases shared
+   * resources asynchronously.
+   * @returns {Promise<void>}
    */
   _reset() {
     if (this._bridge) {
@@ -272,7 +279,7 @@ class WormholeManager {
     if (this._restBridge) {
       this._restBridge.destroy();
     }
-    this._pluginHost.stopAll();
+    const stopped = this._pluginHost.stopAll();
     removeHook();
     this._registry.clear();
     this._initialized = false;
@@ -280,6 +287,7 @@ class WormholeManager {
     this._restBridge = null;
     this._tokenResolver = null;
     this._options = {};
+    return stopped;
   }
 }
 

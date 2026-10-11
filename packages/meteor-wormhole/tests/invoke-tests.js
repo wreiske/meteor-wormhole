@@ -46,13 +46,30 @@ Tinytest.addAsync('Invoke - anonymous invocation has null userId', async functio
 Tinytest.addAsync(
   'Invoke - this.connection carries request headers and client address',
   async function (test) {
-    const result = await invokeMethod('invokeTest.connection', [], {
-      userId: null,
-      req: fakeReq(),
-    });
-    test.equal(result.clientAddress, '203.0.113.7');
-    test.equal(result.ua, 'tldr-app/1.0');
-    test.isTrue(result.wormhole);
+    // Without a trusted proxy count the socket address wins over the spoofable
+    // header. `meteor run` sets HTTP_FORWARDED_COUNT=1 for its dev proxy, so
+    // unset it for this test and restore it afterwards.
+    const previous = process.env.HTTP_FORWARDED_COUNT;
+    delete process.env.HTTP_FORWARDED_COUNT;
+    try {
+      const result = await invokeMethod('invokeTest.connection', [], {
+        userId: null,
+        req: fakeReq(),
+      });
+      test.equal(result.clientAddress, '127.0.0.1');
+      test.equal(result.ua, 'tldr-app/1.0');
+      test.isTrue(result.wormhole);
+
+      process.env.HTTP_FORWARDED_COUNT = '1';
+      const proxied = await invokeMethod('invokeTest.connection', [], {
+        userId: null,
+        req: fakeReq(),
+      });
+      test.equal(proxied.clientAddress, '203.0.113.7');
+    } finally {
+      if (previous === undefined) delete process.env.HTTP_FORWARDED_COUNT;
+      else process.env.HTTP_FORWARDED_COUNT = previous;
+    }
   },
 );
 

@@ -318,11 +318,14 @@ Tinytest.add('OpenAPI - per-operation security follows the auth policy', functio
   registry.register('sec.feed', { auth: 'optional' });
   const spec = generateOpenApiSpec(registry, { sessionAuth: true });
 
-  test.equal(spec.components.securitySchemes.bearerAuth.type, 'http');
+  test.equal(spec.components.securitySchemes.sessionAuth.type, 'http');
+  test.equal(spec.components.securitySchemes.sessionAuth.scheme, 'bearer');
+  test.isUndefined(spec.components.securitySchemes.bearerAuth);
   test.isUndefined(spec.security);
   test.equal(spec.paths['/sec_login'].post.security, []);
-  test.equal(spec.paths['/sec_me'].post.security, [{ bearerAuth: [] }]);
-  test.equal(spec.paths['/sec_feed'].post.security, [{}, { bearerAuth: [] }]);
+  test.equal(spec.paths['/sec_me'].post.security, [{ sessionAuth: [] }]);
+  test.equal(spec.paths['/sec_feed'].post.security, [{}, { sessionAuth: [] }]);
+  test.isTrue('409' in spec.paths['/sec_me'].post.responses);
   test.equal(spec.paths['/sec_me'].post['x-meteor-method'], 'sec.me');
   test.equal(spec.paths['/sec_me'].post['x-wormhole-auth'], 'required');
   test.isTrue('403' in spec.paths['/sec_me'].post.responses);
@@ -335,4 +338,20 @@ Tinytest.add('OpenAPI - apiKey keeps the global security requirement', function 
   const spec = generateOpenApiSpec(registry, { apiKey: 'k' });
   test.equal(spec.security, [{ bearerAuth: [] }]);
   test.equal(spec.paths['/sec_feed'].post.security, [{ bearerAuth: [] }]);
+});
+
+Tinytest.add('OpenAPI - apiKey and session auth are distinct schemes', function (test) {
+  const registry = new MethodRegistry();
+  registry.register('sec.login', { auth: 'none' });
+  registry.register('sec.me', { auth: 'required' });
+  registry.register('sec.feed', { auth: 'optional' });
+  const spec = generateOpenApiSpec(registry, { apiKey: 'k', sessionAuth: true });
+
+  test.equal(spec.components.securitySchemes.bearerAuth.scheme, 'bearer');
+  test.equal(spec.components.securitySchemes.sessionAuth.scheme, 'bearer');
+  test.equal(spec.security, [{ bearerAuth: [] }, { sessionAuth: [] }]);
+  test.equal(spec.paths['/sec_login'].post.security, []);
+  // 'required' rejects API keys at runtime, so only the session scheme is advertised
+  test.equal(spec.paths['/sec_me'].post.security, [{ sessionAuth: [] }]);
+  test.equal(spec.paths['/sec_feed'].post.security, [{ bearerAuth: [] }, { sessionAuth: [] }]);
 });
