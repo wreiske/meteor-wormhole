@@ -5,13 +5,38 @@ declare module 'meteor/wreiske:meteor-wormhole' {
     enabled?: boolean;
     path?: string;
     docs?: boolean;
+    /** Serve `<path>/openapi.json`: `true` (default), `false`, or `'auth'` (apiKey or session required). */
+    spec?: boolean | 'auth';
     apiKey?: string | null;
+  }
+
+  type AuthPolicy = 'required' | 'optional' | 'none';
+
+  interface AuthOptions {
+    /** Use accounts-base login tokens (`Authorization: Bearer <token>`). */
+    accounts?: boolean;
+    /** Custom resolver: return the user id for the request, or null. Overrides `accounts`. */
+    resolveUser?: (req: IncomingMessage) => Promise<string | null> | string | null;
+  }
+
+  interface ResolvedAuth {
+    kind: 'apiKey' | 'session' | 'invalid' | 'none';
+    userId: string | null;
+    token: string | null;
+  }
+
+  interface InvokeHookInfo {
+    req: IncomingMessage | null;
+    methodName: string;
+    userId: string | null;
+    auth: ResolvedAuth;
   }
 
   interface MethodRegistryEntry {
     description: string;
     inputSchema: object | null;
     outputSchema: object | null;
+    auth: AuthPolicy;
     registeredAt: number;
   }
 
@@ -36,6 +61,8 @@ declare module 'meteor/wreiske:meteor-wormhole' {
     registry: MethodRegistry;
     options: WormholeInitOptions;
     context: TContext;
+    /** Resolve the caller of a request with Wormhole's configured credentials. */
+    auth: { resolve(req: IncomingMessage): Promise<ResolvedAuth> };
     mount(path: string, handler: ConnectHandler): void;
   }
 
@@ -52,7 +79,13 @@ declare module 'meteor/wreiske:meteor-wormhole' {
     version?: string;
     apiKey?: string | null;
     exclude?: Array<string | RegExp>;
+    /** Session auth for signed-in users. `true` = accounts-base login tokens. */
+    auth?: boolean | AuthOptions;
+    /** MCP transport; `{ enabled: false }` mounts no MCP server. */
+    mcp?: boolean | { enabled?: boolean };
     rest?: RestOptions | boolean;
+    /** Runs before every invocation; throw a Meteor.Error (e.g. 'rate-limited') to reject. */
+    onBeforeInvoke?: (info: InvokeHookInfo) => void | Promise<void>;
     context?: Record<string, unknown>;
   }
 
@@ -60,6 +93,8 @@ declare module 'meteor/wreiske:meteor-wormhole' {
     description?: string;
     inputSchema?: object;
     outputSchema?: object;
+    /** 'required' = signed-in user only, 'optional' (default), 'none' = always anonymous (login methods). */
+    auth?: AuthPolicy;
   }
 
   interface WormholeManager {
@@ -67,6 +102,8 @@ declare module 'meteor/wreiske:meteor-wormhole' {
     use<TContext = Record<string, unknown>>(plugin: WormholePlugin<TContext>): void;
     expose(methodName: string, options?: ExposeOptions): void;
     unexpose(methodName: string): void;
+    /** Resolve a request's caller with the configured auth rules (for app-owned routes). */
+    resolveAuth(req: IncomingMessage): Promise<ResolvedAuth>;
     readonly registry: MethodRegistry;
     readonly initialized: boolean;
     readonly options: WormholeInitOptions;
@@ -80,6 +117,7 @@ declare module 'meteor/wreiske:meteor-wormhole' {
     version?: string;
     restPath?: string;
     apiKey?: string | null;
+    sessionAuth?: boolean;
     description?: string;
   }
 
@@ -89,6 +127,41 @@ declare module 'meteor/wreiske:meteor-wormhole' {
   ): object;
 
   export function sanitizeToolName(name: string): string;
+
+  /** Invoke a Meteor method server-side as `userId` (sets `this.userId` / `this.connection`). */
+  export function invokeMethod(
+    methodName: string,
+    args?: unknown[],
+    context?: { userId?: string | null; req?: IncomingMessage | null },
+  ): Promise<unknown>;
+
+  /** Map a thrown method error to `{ status, body }` for an HTTP response. */
+  export function errorToHttp(
+    error: unknown,
+    options?: { production?: boolean },
+  ): {
+    status: number;
+    body: { error: string; reason?: string; message: string; details?: unknown };
+  };
+
+  export function extractBearer(req: IncomingMessage): string | null;
+  export function resolveRequestAuth(
+    req: IncomingMessage,
+    options?: {
+      apiKey?: string | null;
+      auth?: AuthOptions | boolean;
+      tokenResolver?: (token: string) => Promise<string | null>;
+    },
+  ): Promise<ResolvedAuth>;
+  export function checkAccess(
+    auth: ResolvedAuth,
+    policy: AuthPolicy,
+    options?: { apiKey?: string | null },
+  ): { status: number; error: string; message: string } | null;
+  export function createAccountsTokenResolver(deps?: {
+    Accounts?: unknown;
+    users?: unknown;
+  }): (token: string) => Promise<string | null>;
 
   export class RestBridge {
     constructor(

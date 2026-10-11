@@ -6,3 +6,6 @@ import './wormhole-tests';
 import './openapi-tests';
 import './rest-bridge-tests';
 import './plugins-tests';
+import './auth-tests';
+import './errors-tests';
+import './invoke-tests';

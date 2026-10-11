@@ -8,6 +8,7 @@ import { sanitizeToolName } from './mcp-bridge';
  * @param {string} [options.version='1.0.0'] - API version
  * @param {string} [options.restPath='/api'] - Base path for REST endpoints
  * @param {string|null} [options.apiKey=null] - Whether API key auth is enabled
+ * @param {boolean} [options.sessionAuth=false] - Whether Meteor login tokens are accepted as Bearer tokens
  * @param {string} [options.description] - API description
  * @returns {object} OpenAPI 3.1.0 specification object
  * @throws {Error} If two method names sanitize to the same route (path key collision)
@@ -32,18 +33,24 @@ export function generateOpenApiSpec(registry, options = {}) {
     paths: {},
   };
 
-  // Add security scheme if API key is configured
-  if (options.apiKey) {
+  // Add security scheme if API key or session auth is configured
+  const hasAuth = !!(options.apiKey || options.sessionAuth);
+  if (hasAuth) {
+    const parts = [];
+    if (options.apiKey) parts.push('API key');
+    if (options.sessionAuth) parts.push('Meteor login token (signed-in user)');
     spec.components = {
       securitySchemes: {
         bearerAuth: {
           type: 'http',
           scheme: 'bearer',
-          description: 'API key passed as a Bearer token',
+          description: `${parts.join(' or ')} passed as a Bearer token`,
         },
       },
     };
-    spec.security = [{ bearerAuth: [] }];
+    if (options.apiKey) {
+      spec.security = [{ bearerAuth: [] }];
+    }
   }
 
   const methods = registry.getAll();
@@ -64,10 +71,13 @@ export function generateOpenApiSpec(registry, options = {}) {
       );
     }
 
+    const policy = config.auth || 'optional';
     const operation = {
       summary: config.description || `Call Meteor method: ${methodName}`,
       operationId: routeName,
       tags: [deriveTag(methodName)],
+      'x-meteor-method': methodName,
+      'x-wormhole-auth': policy,
       responses: {
         200: {
           description: 'Successful method call',
@@ -105,7 +115,7 @@ export function generateOpenApiSpec(registry, options = {}) {
           },
         },
         401: {
-          description: 'Unauthorized — missing or invalid API key',
+          description: 'Unauthorized — missing, invalid or expired credentials',
           content: {
             'application/json': {
               schema: {
@@ -118,8 +128,20 @@ export function generateOpenApiSpec(registry, options = {}) {
             },
           },
         },
+        403: {
+          description: 'Forbidden — the method rejected the caller (e.g. not-authorized)',
+          content: { 'application/json': { schema: errorSchema() } },
+        },
+        404: {
+          description: 'Not found — unknown route or the method reported not-found',
+          content: { 'application/json': { schema: errorSchema() } },
+        },
+        429: {
+          description: 'Rate limited',
+          content: { 'application/json': { schema: errorSchema() } },
+        },
         500: {
-          description: 'Meteor method error or internal server error',
+          description: 'Internal server error',
           content: {
             'application/json': {
               schema: {
@@ -167,10 +189,32 @@ export function generateOpenApiSpec(registry, options = {}) {
       };
     }
 
+    if (hasAuth) {
+      if (policy === 'none') {
+        operation.security = [];
+      } else if (policy === 'required' || options.apiKey) {
+        operation.security = [{ bearerAuth: [] }];
+      } else {
+        // optional: anonymous or authenticated
+        operation.security = [{}, { bearerAuth: [] }];
+      }
+    }
+
     spec.paths[pathKey] = { post: operation };
   }
 
   return spec;
+}
+
+function errorSchema() {
+  return {
+    type: 'object',
+    properties: {
+      error: { type: 'string' },
+      reason: { type: 'string' },
+      message: { type: 'string' },
+    },
+  };
 }
 
 /**

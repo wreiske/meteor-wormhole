@@ -2,6 +2,9 @@ import { Meteor } from 'meteor/meteor';
 import { WebApp } from 'meteor/webapp';
 import { sanitizeToolName } from './mcp-bridge';
 import { generateOpenApiSpec } from './openapi';
+import { resolveRequestAuth, checkAccess } from './auth';
+import { invokeMethod } from './invoke';
+import { errorToHttp } from './errors';
 
 /** Maximum allowed request body size in bytes (1 MB). */
 const MAX_BODY_SIZE = 1024 * 1024;
@@ -92,8 +95,12 @@ export class RestBridge {
    * @param {string} [options.restPath='/api'] - Base path for REST endpoints
    * @param {string} [options.name='meteor-wormhole'] - API name
    * @param {string} [options.version='1.0.0'] - API version
-   * @param {string|null} [options.apiKey=null] - Bearer token for auth
+   * @param {string|null} [options.apiKey=null] - Bearer token for service callers
    * @param {boolean} [options.docs] - Whether to serve Swagger UI (enabled unless explicitly `false`)
+   * @param {boolean|'auth'} [options.spec=true] - Serve `/openapi.json`: `true`, `false`, or `'auth'` (apiKey or session required)
+   * @param {{enabled: boolean, resolveUser: Function|null}} [options.auth] - Normalized session-auth options
+   * @param {Function} [options.tokenResolver] - `(token) => Promise<userId|null>` used when auth is enabled without a custom resolver
+   * @param {Function} [options.onBeforeInvoke] - `async ({ req, methodName, userId, auth }) => void`; throw a `Meteor.Error` to reject
    */
   constructor(registry, options) {
     this._registry = registry;
@@ -170,6 +177,18 @@ export class RestBridge {
   }
 
   /**
+   * Resolve the caller of a request (apiKey / session / invalid / none).
+   * @param {import('http').IncomingMessage} req
+   */
+  _resolveAuth(req) {
+    return resolveRequestAuth(req, {
+      apiKey: this._options.apiKey,
+      auth: this._options.auth,
+      tokenResolver: this._options.tokenResolver,
+    });
+  }
+
+  /**
    * Route an incoming HTTP request to the appropriate handler.
    * @param {import('http').IncomingMessage} req - HTTP request
    * @param {import('http').ServerResponse} res - HTTP response
@@ -180,28 +199,29 @@ export class RestBridge {
   async _handleRequest(req, res, basePath, next) {
     // Strip the base path prefix to get the route segment
     const url = req.url.split('?')[0].replace(/\/+$/, '');
-
-    // API key check
-    if (this._options.apiKey) {
-      // Allow unauthenticated access to docs and spec
-      const isDocsRoute = url === '/docs' || url === '/openapi.json';
-      if (!isDocsRoute) {
-        const authHeader = req.headers['authorization'] || '';
-        if (authHeader !== `Bearer ${this._options.apiKey}`) {
-          sendJson(res, 401, { error: 'unauthorized', message: 'Invalid or missing API key' });
-          return;
-        }
-      }
-    }
+    const isDocsRoute = url === '/docs' || url === '/openapi.json';
 
     // GET /openapi.json — serve OpenAPI spec
     if (req.method === 'GET' && url === '/openapi.json') {
+      const specMode = this._options.spec === undefined ? true : this._options.spec;
+      if (specMode === false) {
+        sendJson(res, 404, { error: 'not-found', message: 'OpenAPI spec is disabled' });
+        return;
+      }
+      if (specMode === 'auth') {
+        const auth = await this._resolveAuth(req);
+        if (auth.kind !== 'apiKey' && auth.kind !== 'session') {
+          sendJson(res, 401, { error: 'unauthorized', message: 'Authentication required' });
+          return;
+        }
+      }
       try {
         const spec = generateOpenApiSpec(this._registry, {
           name: this._options.name,
           version: this._options.version,
           restPath: basePath,
           apiKey: this._options.apiKey,
+          sessionAuth: !!(this._options.auth && this._options.auth.enabled),
         });
         sendJson(res, 200, spec);
       } catch (err) {
@@ -225,6 +245,9 @@ export class RestBridge {
       return;
     }
 
+    // Everything below is credential-aware
+    const auth = await this._resolveAuth(req);
+
     // POST /<toolName> — invoke a Meteor method
     if (req.method === 'POST') {
       const routeName = url.replace(/^\//, '');
@@ -235,12 +258,17 @@ export class RestBridge {
         });
         return;
       }
-      await this._invokeMethod(routeName, req, res);
+      await this._invokeMethod(routeName, req, res, auth);
       return;
     }
 
-    // GET / — list available endpoints
+    // GET / — list available endpoints (gated like a method with 'optional' policy)
     if (req.method === 'GET' && (url === '' || url === '/')) {
+      const denied = checkAccess(auth, 'optional', { apiKey: this._options.apiKey });
+      if (denied && !isDocsRoute) {
+        sendJson(res, denied.status, { error: denied.error, message: denied.message });
+        return;
+      }
       const methods = this._registry.getAll();
       const endpoints = [];
       for (const [methodName, config] of methods) {
@@ -249,6 +277,7 @@ export class RestBridge {
           method: methodName,
           endpoint: `POST ${basePath}/${routeName}`,
           description: config.description || `Meteor method: ${methodName}`,
+          auth: config.auth || 'optional',
         });
       }
       sendJson(res, 200, {
@@ -296,12 +325,20 @@ export class RestBridge {
    * @param {string} routeName - The sanitized tool/route name
    * @param {import('http').IncomingMessage} req - HTTP request
    * @param {import('http').ServerResponse} res - HTTP response
+   * @param {{kind: string, userId: string|null}} auth - Resolved caller
    * @returns {Promise<void>}
    */
-  async _invokeMethod(routeName, req, res) {
+  async _invokeMethod(routeName, req, res, auth) {
     const entry = this._routeMap.get(routeName);
 
     if (!entry) {
+      // Keep unknown-route behaviour identical for anonymous and authenticated
+      // callers, but never leak method names to callers the apiKey gate rejects.
+      const denied = checkAccess(auth, 'optional', { apiKey: this._options.apiKey });
+      if (denied) {
+        sendJson(res, denied.status, { error: denied.error, message: denied.message });
+        return;
+      }
       sendJson(res, 404, { error: 'not-found', message: `No method mapped to: ${routeName}` });
       return;
     }
@@ -318,6 +355,13 @@ export class RestBridge {
 
     const methodName = entry;
     const config = this._registry.get(methodName);
+    const policy = (config && config.auth) || 'optional';
+
+    const denied = checkAccess(auth, policy, { apiKey: this._options.apiKey });
+    if (denied) {
+      sendJson(res, denied.status, { error: denied.error, message: denied.message });
+      return;
+    }
 
     let body;
     try {
@@ -339,30 +383,33 @@ export class RestBridge {
       return;
     }
 
+    // Methods with policy 'none' always run anonymously (login-style methods).
+    const userId = policy === 'none' ? null : auth.userId;
+
     try {
-      let result;
+      if (typeof this._options.onBeforeInvoke === 'function') {
+        await this._options.onBeforeInvoke({ req, methodName, userId, auth });
+      }
+
+      let args;
       if (config.inputSchema) {
         // Pass the entire body as a single argument (explicit schema mode)
-        result = await Meteor.callAsync(methodName, body || {});
+        args = [body || {}];
       } else {
         // Generic mode: spread the args array
-        const args = (body && body.args) || [];
-        result = await Meteor.callAsync(methodName, ...args);
+        args = (body && body.args) || [];
       }
+
+      const result = await invokeMethod(methodName, args, { userId, req });
       sendJson(res, 200, { result: result ?? null });
     } catch (error) {
-      if (error instanceof Meteor.Error) {
-        sendJson(res, 500, {
-          error: error.error,
-          reason: error.reason || error.message,
-          message: error.message,
-        });
-      } else {
-        sendJson(res, 500, {
-          error: 'internal-error',
-          message: error.message || 'Unknown error',
-        });
+      const { status, body: errBody } = errorToHttp(error, {
+        production: this._options.production,
+      });
+      if (status >= 500 && !(error instanceof Meteor.Error)) {
+        console.error(`[Wormhole] ${methodName} failed:`, error);
       }
+      sendJson(res, status, errBody);
     }
   }
 }

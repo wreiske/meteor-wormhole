@@ -1,6 +1,12 @@
 import { Meteor } from 'meteor/meteor';
 import { WebApp } from 'meteor/webapp';
 import { randomUUID } from 'crypto';
+import { resolveRequestAuth, checkAccess } from './auth';
+import { invokeMethod } from './invoke';
+import { errorToHttp } from './errors';
+
+/** Per-request caller context, visible to tool handlers via AsyncLocalStorage. */
+const currentRequest = new Meteor.EnvironmentVariable();
 
 // Use explicit dist paths — Meteor's module resolver doesn't support the
 // wildcard subpath exports pattern ("./*") used by the SDK's package.json.
@@ -154,18 +160,23 @@ export class McpBridge {
   }
 
   async _handleRequest(req, res) {
-    // API key check
-    if (this._options.apiKey) {
-      const authHeader = req.headers['authorization'] || '';
-      if (authHeader !== `Bearer ${this._options.apiKey}`) {
-        res.writeHead(401, { 'Content-Type': 'application/json' });
-        res.end(
-          JSON.stringify({ jsonrpc: '2.0', error: { code: -32600, message: 'Unauthorized' } }),
-        );
-        return;
-      }
+    // Credential check: apiKey (service) or, when enabled, a Meteor login token.
+    const auth = await resolveRequestAuth(req, {
+      apiKey: this._options.apiKey,
+      auth: this._options.auth,
+      tokenResolver: this._options.tokenResolver,
+    });
+    const denied = checkAccess(auth, 'optional', { apiKey: this._options.apiKey });
+    if (denied) {
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ jsonrpc: '2.0', error: { code: -32600, message: 'Unauthorized' } }));
+      return;
     }
 
+    return currentRequest.withValue({ req, auth }, () => this._dispatch(req, res));
+  }
+
+  async _dispatch(req, res) {
     const sessionId = req.headers['mcp-session-id'];
 
     if (req.method === 'POST') {
@@ -258,24 +269,36 @@ export class McpBridge {
           inputSchema,
         },
         async (params) => {
+          const ctx = currentRequest.get() || { req: null, auth: { kind: 'none', userId: null } };
+          const policy = config.auth || 'optional';
+          const denied = checkAccess(ctx.auth, policy, { apiKey: this._options.apiKey });
+          if (denied) {
+            return {
+              content: [{ type: 'text', text: `${denied.error}: ${denied.message}` }],
+              isError: true,
+            };
+          }
+          const userId = policy === 'none' ? null : ctx.auth.userId;
+
           try {
-            let result;
-            if (hasExplicitSchema) {
-              // Pass the entire params object as a single argument
-              result = await Meteor.callAsync(methodName, params);
-            } else {
-              // Generic mode: spread the args array
-              const args = params.args || [];
-              result = await Meteor.callAsync(methodName, ...args);
+            if (typeof this._options.onBeforeInvoke === 'function') {
+              await this._options.onBeforeInvoke({
+                req: ctx.req,
+                methodName,
+                userId,
+                auth: ctx.auth,
+              });
             }
+            // Explicit schema: pass the params object as a single argument.
+            // Generic mode: spread the args array.
+            const args = hasExplicitSchema ? [params] : params.args || [];
+            const result = await invokeMethod(methodName, args, { userId, req: ctx.req });
             return {
               content: [{ type: 'text', text: JSON.stringify(result ?? null) }],
             };
           } catch (error) {
-            const message =
-              error instanceof Meteor.Error
-                ? `${error.error}: ${error.reason || error.message}`
-                : error.message || 'Unknown error';
+            const { body } = errorToHttp(error, { production: this._options.production });
+            const message = body.reason ? `${body.error}: ${body.reason}` : body.message;
             return {
               content: [{ type: 'text', text: message }],
               isError: true,

@@ -40,8 +40,95 @@ Tinytest.add(
     test.equal(opts.name, 'meteor-wormhole');
     test.equal(opts.version, '1.0.0');
     test.equal(opts.apiKey, null);
+    test.equal(opts.auth, { enabled: false, resolveUser: null });
+    test.equal(opts.mcp, { enabled: true });
+    test.equal(opts.onBeforeInvoke, null);
   }),
 );
+
+Tinytest.add(
+  'Wormhole - mcp can be disabled',
+  withReset(function (test) {
+    Wormhole.init({
+      mode: 'opt-in',
+      mcp: { enabled: false },
+      rest: { enabled: true, path: '/test-wh-nomcp' },
+    });
+    test.isFalse(Wormhole.options.mcp.enabled);
+    test.isNull(Wormhole._bridge);
+    test.isNotNull(Wormhole._restBridge);
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - mcp: false shorthand disables MCP',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in', mcp: false });
+    test.isFalse(Wormhole.options.mcp.enabled);
+    test.isNull(Wormhole._bridge);
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - auth: custom resolveUser is stored and enabled',
+  withReset(function (test) {
+    const resolveUser = async () => 'u1';
+    Wormhole.init({ mode: 'opt-in', auth: { resolveUser } });
+    test.isTrue(Wormhole.options.auth.enabled);
+    test.equal(Wormhole.options.auth.resolveUser, resolveUser);
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - rest.spec defaults to true and accepts auth',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in', rest: { enabled: true, spec: 'auth', path: '/test-wh-spec' } });
+    test.equal(Wormhole.options.rest.spec, 'auth');
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - onBeforeInvoke must be a function',
+  withReset(function (test) {
+    test.throws(function () {
+      Wormhole.init({ mode: 'opt-in', onBeforeInvoke: 'nope' });
+    }, /must be a function/);
+  }),
+);
+
+Tinytest.add(
+  'Wormhole - expose validates the auth policy',
+  withReset(function (test) {
+    Wormhole.init({ mode: 'opt-in' });
+    Wormhole.expose('policy.ok', { auth: 'required' });
+    test.equal(Wormhole.registry.get('policy.ok').auth, 'required');
+    test.equal(Wormhole.registry.get('policy.ok').auth, 'required');
+    test.throws(function () {
+      Wormhole.expose('policy.bad', { auth: 'sometimes' });
+    }, /Invalid auth policy/);
+  }),
+);
+
+Tinytest.addAsync('Wormhole - resolveAuth uses the configured resolver', async function (test) {
+  Wormhole._reset();
+  try {
+    Wormhole.init({
+      mode: 'opt-in',
+      apiKey: 'svc',
+      auth: {
+        resolveUser: async (req) => (req.headers.authorization === 'Bearer tok' ? 'u9' : null),
+      },
+    });
+    const session = await Wormhole.resolveAuth({ headers: { authorization: 'Bearer tok' } });
+    test.equal(session, { kind: 'session', userId: 'u9', token: 'tok' });
+    const key = await Wormhole.resolveAuth({ headers: { authorization: 'Bearer svc' } });
+    test.equal(key.kind, 'apiKey');
+    const none = await Wormhole.resolveAuth({ headers: {} });
+    test.equal(none.kind, 'none');
+  } finally {
+    Wormhole._reset();
+  }
+});
 
 Tinytest.add(
   'Wormhole - init with custom options',
