@@ -15,6 +15,7 @@
 - **OpenAPI 3.1 Spec** — Auto-generated from your method registry
 - **Swagger UI** — Built-in API docs browser at `/api/docs`
 - **API Key Authentication** — Optional bearer token auth for MCP and REST endpoints
+- **Session Authentication** — Call methods as a signed-in user with a Meteor login token (`this.userId` just works)
 - **Input & Output Schemas** — Define JSON Schema for method parameters and return values
 - **Smart Defaults** — Auto-excludes internal Meteor, DDP, and Accounts methods
 - **Plugin Host** — Register custom transports and HTTP endpoints with `Wormhole.use()`, no forking required
@@ -66,16 +67,19 @@ Wormhole.init({
 
 #### Options
 
-| Option    | Type                   | Default             | Description                                                                                          |
-| --------- | ---------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- |
-| `mode`    | `'all' \| 'opt-in'`    | `'all'`             | `'all'` auto-registers all methods. `'opt-in'` requires explicit `Wormhole.expose()` calls.          |
-| `path`    | `string`               | `'/mcp'`            | HTTP path where the MCP server listens.                                                              |
-| `name`    | `string`               | `'meteor-wormhole'` | Display name for the MCP server.                                                                     |
-| `version` | `string`               | `'1.0.0'`           | Semantic version of the MCP server.                                                                  |
-| `apiKey`  | `string \| null`       | `null`              | Bearer token for authentication. If set, all requests must include `Authorization: Bearer <apiKey>`. |
-| `exclude` | `(string \| RegExp)[]` | `[]`                | Method name patterns to exclude in `'all'` mode. Supports exact strings and RegExp.                  |
-| `rest`    | `object \| boolean`    | `false`             | REST API configuration (see below). Pass `true` to enable with defaults.                             |
-| `context` | `object`               | `{}`                | App-provided context object passed to every plugin's `start(api)` (see [Plugins](#plugins)).         |
+| Option           | Type                   | Default             | Description                                                                                                                              |
+| ---------------- | ---------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`           | `'all' \| 'opt-in'`    | `'all'`             | `'all'` auto-registers all methods. `'opt-in'` requires explicit `Wormhole.expose()` calls.                                              |
+| `path`           | `string`               | `'/mcp'`            | HTTP path where the MCP server listens.                                                                                                  |
+| `name`           | `string`               | `'meteor-wormhole'` | Display name for the MCP server.                                                                                                         |
+| `version`        | `string`               | `'1.0.0'`           | Semantic version of the MCP server.                                                                                                      |
+| `apiKey`         | `string \| null`       | `null`              | Bearer token for authentication. If set, all requests must include `Authorization: Bearer <apiKey>`.                                     |
+| `exclude`        | `(string \| RegExp)[]` | `[]`                | Method name patterns to exclude in `'all'` mode. Supports exact strings and RegExp.                                                      |
+| `rest`           | `object \| boolean`    | `false`             | REST API configuration (see below). Pass `true` to enable with defaults.                                                                 |
+| `auth`           | `boolean \| object`    | `false`             | Session auth for signed-in users: `true` (accounts-base login tokens) or `{ resolveUser(req) }` (see [Authentication](#authentication)). |
+| `mcp`            | `object \| boolean`    | `{ enabled: true }` | MCP transport. `{ enabled: false }` mounts no MCP server (REST-only).                                                                    |
+| `onBeforeInvoke` | `function`             | `null`              | `async ({ req, methodName, userId, auth })` called before every invocation; throw a `Meteor.Error` to reject.                            |
+| `context`        | `object`               | `{}`                | App-provided context object passed to every plugin's `start(api)` (see [Plugins](#plugins)).                                             |
 
 #### REST Options (`options.rest`)
 
@@ -318,19 +322,24 @@ interface WormholePlugin<TContext = Record<string, unknown>> {
 
 ### The `api` passed to `start()`
 
-| Property                | Description                                                            |
-| ----------------------- | ---------------------------------------------------------------------- |
-| `api.registry`          | The method registry — inspect which methods are exposed.               |
-| `api.options`           | The resolved `Wormhole.init()` options.                                |
-| `api.context`           | The app-provided `context` object from `init()`.                       |
-| `api.mount(path, fn)`   | Mount a connect-style `(req, res, next)` handler on the web server.    |
+| Property              | Description                                                         |
+| --------------------- | ------------------------------------------------------------------- |
+| `api.registry`        | The method registry — inspect which methods are exposed.            |
+| `api.options`         | The resolved `Wormhole.init()` options.                             |
+| `api.context`         | The app-provided `context` object from `init()`.                    |
+| `api.mount(path, fn)` | Mount a connect-style `(req, res, next)` handler on the web server. |
 
 ### Lifecycle & error handling
 
 - Plugins start in registration order; a plugin that throws (or rejects) during
   `start()` is logged and skipped without taking down the others.
 - On `Wormhole._reset()` the host calls each plugin's `stop()` in **reverse**
-  order.
+  order, awaiting each one (and any `start()` still in flight) before the next.
+  Host state is cleared synchronously so `init()` can run again immediately;
+  `_reset()` returns a promise that settles when every `stop()` has finished.
+- A plugin whose async `start()` resolves after the host stopped is stopped
+  again right away, and its stale `api.mount()` throws instead of leaking a
+  handler into the next generation.
 - Registering two plugins with the same `name` throws.
 
 ### `sanitizeToolName(name)`
@@ -347,13 +356,140 @@ sanitizeToolName('todos.add'); // 'todos_add'
 
 ## Authentication
 
-When `apiKey` is set, all MCP and REST requests (except Swagger UI and OpenAPI spec) require a bearer token:
+Wormhole supports two kinds of callers, both sent as `Authorization: Bearer <token>`:
 
-```
-Authorization: Bearer <your-api-key>
+| Caller          | Token                   | Enabled by      | `this.userId` |
+| --------------- | ----------------------- | --------------- | ------------- |
+| Service / agent | the configured `apiKey` | `apiKey: '...'` | `null`        |
+| Signed-in user  | a Meteor login token    | `auth: true`    | the user id   |
+
+### API key (agents)
+
+When `apiKey` is set, all MCP and REST requests (except Swagger UI and the OpenAPI spec) require it:
+
+```bash
+curl -H "Authorization: Bearer my-secret-key" http://localhost:3000/mcp
 ```
 
-Unauthorized requests receive a `401` response.
+### Session auth (mobile apps, SPAs, authenticated clients)
+
+Enable `auth` to let clients call methods **as a signed-in user**. The REST bridge resolves the
+Bearer token to a user id and invokes the method with `this.userId` set, exactly as a DDP
+client would. `this.connection.clientAddress` and `this.connection.httpHeaders` are populated
+from the HTTP request.
+
+```js
+Wormhole.init({
+  mode: 'opt-in',
+  mcp: { enabled: false }, // REST-only app API
+  auth: true, // accepts Meteor login tokens (accounts-base)
+  rest: { enabled: true, path: '/api/app', spec: 'auth' },
+});
+
+Wormhole.expose('login.withGoogle', {
+  auth: 'none',
+  inputSchema: {
+    /* ... */
+  },
+});
+Wormhole.expose('todos.add', {
+  auth: 'required',
+  inputSchema: {
+    /* ... */
+  },
+});
+Wormhole.expose('feed.list', { auth: 'optional' }); // default
+```
+
+`auth: true` uses `accounts-base`: the token is hashed with `Accounts._hashLoginToken` and looked
+up in `services.resume.loginTokens`; expired tokens are rejected. Issue tokens from your own login
+method with `Accounts._generateStampedLoginToken()` + `Accounts._insertLoginToken()`, or let a web
+client reuse `Accounts._storedLoginToken()`.
+
+To plug in a different scheme (JWTs, your own session store), pass a resolver instead:
+
+```js
+Wormhole.init({
+  auth: {
+    resolveUser: async (req) => {
+      const token = (req.headers.authorization || '').replace(/^Bearer /, '');
+      return (await Sessions.findOneAsync({ token }))?.userId ?? null;
+    },
+  },
+});
+```
+
+#### Per-method policy (`expose(name, { auth })`)
+
+| Policy       | Behaviour                                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------- |
+| `'optional'` | Default. Invoked with the caller's user id when a valid token is present, otherwise `null`. |
+| `'required'` | `401` unless a valid **user** token is presented (the service `apiKey` does not count).     |
+| `'none'`     | Always invoked anonymously and exempt from the `apiKey` gate (use for login methods).       |
+
+An invalid or expired Bearer token is always `401`, whatever the policy. When `apiKey` is set,
+anonymous callers are rejected on `'optional'` and `'required'` methods.
+
+#### Hooks
+
+`onBeforeInvoke` runs before every REST and MCP invocation. Throw a `Meteor.Error` to reject,
+for example to rate limit login attempts per IP:
+
+```js
+Wormhole.init({
+  onBeforeInvoke: async ({ req, methodName, userId, auth }) => {
+    if (methodName.startsWith('login.') && (await tooManyAttempts(req))) {
+      throw new Meteor.Error('rate-limited', 'Too many attempts'); // → HTTP 429
+    }
+  },
+});
+```
+
+`Wormhole.resolveAuth(req)` returns `{ kind, userId, token }` for any request, so app-owned
+HTTP routes can share the same credential rules. Plugins receive the same resolver as
+`api.auth.resolve(req)`.
+
+### HTTP status mapping
+
+REST responses map thrown errors to statuses instead of a blanket `500`:
+
+| Thrown                                                                               | Status                               |
+| ------------------------------------------------------------------------------------ | ------------------------------------ |
+| `Match.Error` (from `check`)                                                         | `400`                                |
+| `Meteor.Error(404, ...)` (any numeric 4xx/5xx code)                                  | that code                            |
+| `not-authorized`, `forbidden`                                                        | `403`                                |
+| `unauthorized`, `not-logged-in`, `*-login-failed`, `invalid-code`, `session-expired` | `401`                                |
+| `not-found`, `no-such-*`                                                             | `404`                                |
+| `already-exists`, `account-exists`                                                   | `409`                                |
+| `rate-limited`, `too-many-requests`                                                  | `429`                                |
+| any other `Meteor.Error`                                                             | `400`                                |
+| any other error                                                                      | `500` (message hidden in production) |
+
+The body is `{ error, message }`; `reason` is added for `Meteor.Error` / `Match.Error` responses and
+`details` when the thrown `Meteor.Error` carried one. Generic `500` and credential rejections
+carry only `error` and `message`.
+
+### Disabling the MCP transport
+
+`Wormhole.init({ mcp: { enabled: false } })` mounts no MCP server; only the REST bridge (and
+your plugins) are served. Without this, an MCP server with neither `apiKey` nor `auth` is
+reachable anonymously and Wormhole logs a warning at startup.
+
+### OpenAPI spec visibility
+
+`rest.spec` controls `<path>/openapi.json`: `true` (default), `false`, or `'auth'` to require
+an API key or user token. Each operation carries `x-meteor-method` and `x-wormhole-auth`, and
+`security` reflects the method's policy, so generated clients know which calls need a token.
+The spec declares two bearer schemes: `bearerAuth` (the service API key) and `sessionAuth` (a
+Meteor login token). `auth: 'required'` operations reference only `sessionAuth`, because an API
+key is rejected there with `401`.
+
+### Client address behind proxies
+
+`this.connection.clientAddress` follows Meteor's own trust model: set `HTTP_FORWARDED_COUNT` to
+the number of proxies in front of the app and the matching `X-Forwarded-For` entry is used;
+without it the socket address is reported. Proxy headers are never trusted blindly, so an
+IP-based limiter in `onBeforeInvoke` cannot be bypassed by a spoofed header.
 
 ## Additional API
 

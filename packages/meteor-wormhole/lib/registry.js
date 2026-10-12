@@ -1,3 +1,5 @@
+export const AUTH_POLICIES = ['required', 'optional', 'none'];
+
 /**
  * MethodRegistry tracks which Meteor methods should be exposed as MCP tools.
  */
@@ -14,12 +16,22 @@ export class MethodRegistry {
    * @param {string} [options.description] - Human-readable description
    * @param {object} [options.inputSchema] - JSON Schema for parameters
    * @param {object} [options.outputSchema] - JSON Schema for return value (used in OpenAPI spec)
+   * @param {'required'|'optional'|'none'} [options.auth='optional'] - Session-auth policy:
+   *   `'required'` rejects callers without a resolved user, `'optional'` passes the
+   *   user through when present, `'none'` always invokes anonymously (login methods).
    */
   register(name, options = {}) {
+    const auth = options.auth === undefined ? 'optional' : options.auth;
+    if (!AUTH_POLICIES.includes(auth)) {
+      throw new Error(
+        `Invalid auth policy '${auth}' for method '${name}' (expected one of ${AUTH_POLICIES.join(', ')})`,
+      );
+    }
     const entry = {
       description: options.description || `Meteor method: ${name}`,
       inputSchema: options.inputSchema || null,
       outputSchema: options.outputSchema || null,
+      auth,
       registeredAt: Date.now(),
     };
     this._methods.set(name, entry);

@@ -1,4 +1,5 @@
 import { Tinytest } from 'meteor/tinytest';
+import { WebApp } from 'meteor/webapp';
 import { PluginHost } from '../lib/plugins';
 
 // Minimal host API stub; plugins only spread it and may call mount().
@@ -149,3 +150,77 @@ Tinytest.add('PluginHost - stopAll swallows a rejecting async stop', function (t
   host.stopAll();
   test.equal(host.names(), []);
 });
+
+Tinytest.addAsync(
+  'PluginHost - stopAll awaits async stops one at a time in reverse order',
+  async function (test) {
+    const host = new PluginHost();
+    const events = [];
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    host.use({
+      name: 'first',
+      start() {},
+      async stop() {
+        events.push('first:begin');
+        await delay(10);
+        events.push('first:end');
+      },
+    });
+    host.use({
+      name: 'second',
+      start() {},
+      async stop() {
+        events.push('second:begin');
+        await delay(30);
+        events.push('second:end');
+      },
+    });
+    host.startAll({ registry: null, options: {}, context: {} });
+
+    const done = host.stopAll();
+    // State is cleared synchronously so the host can be reused immediately…
+    test.equal(host.names(), []);
+    test.isTrue(typeof done.then === 'function');
+    await done;
+    // …but each stop finished before the next began, last-registered first.
+    test.equal(events, ['second:begin', 'second:end', 'first:begin', 'first:end']);
+  },
+);
+
+Tinytest.addAsync(
+  'PluginHost - an async start that resolves after stopAll cannot mount and is stopped',
+  async function (test) {
+    const host = new PluginHost();
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    let mountError = null;
+    let stopped = 0;
+    host.use({
+      name: 'slow',
+      async start(api) {
+        await gate;
+        try {
+          api.mount('/wormhole-stale-plugin', (_req, res) => res.end('x'));
+        } catch (err) {
+          mountError = err;
+        }
+      },
+      stop() {
+        stopped += 1;
+      },
+    });
+    host.startAll({ registry: null, options: {}, context: {} });
+
+    const done = host.stopAll();
+    release();
+    await done;
+
+    test.isTrue(mountError instanceof Error);
+    test.matches(mountError.message, /stale/);
+    test.equal(stopped, 1);
+    const stack = WebApp.connectHandlers.stack || [];
+    test.isFalse(stack.some((layer) => layer.route === '/wormhole-stale-plugin'));
+  },
+);

@@ -14,7 +14,12 @@ Npm.depends({
 
 Package.onUse(function (api) {
   api.versionsFrom(['3.4']);
-  api.use(['ecmascript', 'webapp', 'ddp-server', 'meteor'], 'server');
+  api.use(
+    ['ecmascript', 'webapp', 'ddp-server', 'ddp-client', 'ddp-common', 'check', 'meteor'],
+    'server',
+  );
+  // Optional: only needed for `auth: true` (built-in login-token resolver)
+  api.use('accounts-base', 'server', { weak: true });
   api.mainModule('server.js', 'server');
 });
 

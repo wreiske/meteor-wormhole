@@ -27,7 +27,37 @@ Meteor.methods({
   'restTest.genericError'() {
     throw new Error('Unexpected failure');
   },
+  'restTest.whoami'() {
+    return { userId: this.userId };
+  },
+  'restTest.notAuthorized'() {
+    throw new Meteor.Error('not-authorized', 'Admins only');
+  },
+  'restTest.notFound'() {
+    throw new Meteor.Error('not-found', 'No such thing');
+  },
 });
+
+// Session-auth helpers: a resolver that accepts "user:<id>" bearer tokens
+const sessionAuth = {
+  enabled: true,
+  resolveUser: async (req) => {
+    const header = req.headers.authorization || '';
+    const match = header.match(/^Bearer user:(.+)$/);
+    return match ? match[1] : null;
+  },
+};
+
+async function post(path, { token, body } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body || {}),
+  });
+  return { status: res.status, body: await res.json() };
+}
 
 // --- Constructor / lifecycle ---
 
@@ -417,7 +447,7 @@ Tinytest.addAsync('RestBridge - POST with invalid JSON body returns 400', async 
   }
 });
 
-Tinytest.addAsync('RestBridge - POST propagates Meteor.Error', async function (test) {
+Tinytest.addAsync('RestBridge - POST propagates Meteor.Error as 400', async function (test) {
   const registry = freshRegistry();
   registry.register('restTest.meteorError', { description: 'Meteor.Error test' });
   const bridge = new RestBridge(registry, { restPath: '/test-rest-merror' });
@@ -429,7 +459,7 @@ Tinytest.addAsync('RestBridge - POST propagates Meteor.Error', async function (t
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
     });
-    test.equal(res.status, 500);
+    test.equal(res.status, 400);
 
     const body = await res.json();
     test.equal(body.error, 'test-error');
@@ -479,6 +509,222 @@ Tinytest.addAsync(
       const body = await res.json();
       // Generic mode with no body → args defaults to []
       test.isTrue(body.result !== undefined);
+    } finally {
+      bridge.stop();
+    }
+  },
+);
+
+// --- Session auth (Bearer <login token> → this.userId) ---
+
+Tinytest.addAsync(
+  'RestBridge - session token sets this.userId in the method',
+  async function (test) {
+    const registry = freshRegistry();
+    registry.register('restTest.whoami', { description: 'whoami' });
+    const bridge = new RestBridge(registry, { restPath: '/test-rest-session', auth: sessionAuth });
+    bridge.start();
+
+    try {
+      const withUser = await post('/test-rest-session/restTest_whoami', { token: 'user:abc' });
+      test.equal(withUser.status, 200);
+      test.equal(withUser.body.result.userId, 'abc');
+
+      const anonymous = await post('/test-rest-session/restTest_whoami');
+      test.equal(anonymous.status, 200);
+      test.isNull(anonymous.body.result.userId);
+    } finally {
+      bridge.stop();
+    }
+  },
+);
+
+Tinytest.addAsync('RestBridge - invalid session token is 401', async function (test) {
+  const registry = freshRegistry();
+  registry.register('restTest.whoami', { description: 'whoami' });
+  const bridge = new RestBridge(registry, { restPath: '/test-rest-badtoken', auth: sessionAuth });
+  bridge.start();
+
+  try {
+    const res = await post('/test-rest-badtoken/restTest_whoami', { token: 'garbage' });
+    test.equal(res.status, 401);
+    test.equal(res.body.error, 'unauthorized');
+  } finally {
+    bridge.stop();
+  }
+});
+
+Tinytest.addAsync(
+  'RestBridge - auth: required rejects anonymous and apiKey callers',
+  async function (test) {
+    const registry = freshRegistry();
+    registry.register('restTest.whoami', { description: 'whoami', auth: 'required' });
+    const bridge = new RestBridge(registry, {
+      restPath: '/test-rest-required',
+      auth: sessionAuth,
+      apiKey: 'svc-key',
+    });
+    bridge.start();
+
+    try {
+      test.equal((await post('/test-rest-required/restTest_whoami')).status, 401);
+      test.equal(
+        (await post('/test-rest-required/restTest_whoami', { token: 'svc-key' })).status,
+        401,
+      );
+      const ok = await post('/test-rest-required/restTest_whoami', { token: 'user:u1' });
+      test.equal(ok.status, 200);
+      test.equal(ok.body.result.userId, 'u1');
+    } finally {
+      bridge.stop();
+    }
+  },
+);
+
+Tinytest.addAsync(
+  'RestBridge - auth: none always invokes anonymously and bypasses the apiKey gate',
+  async function (test) {
+    const registry = freshRegistry();
+    registry.register('restTest.whoami', { description: 'whoami', auth: 'none' });
+    const bridge = new RestBridge(registry, {
+      restPath: '/test-rest-none',
+      auth: sessionAuth,
+      apiKey: 'svc-key',
+    });
+    bridge.start();
+
+    try {
+      const anon = await post('/test-rest-none/restTest_whoami');
+      test.equal(anon.status, 200);
+      test.isNull(anon.body.result.userId);
+
+      const withUser = await post('/test-rest-none/restTest_whoami', { token: 'user:u1' });
+      test.equal(withUser.status, 200);
+      test.isNull(withUser.body.result.userId);
+    } finally {
+      bridge.stop();
+    }
+  },
+);
+
+Tinytest.addAsync(
+  'RestBridge - apiKey gate still rejects anonymous callers on optional methods',
+  async function (test) {
+    const registry = freshRegistry();
+    registry.register('restTest.whoami', { description: 'whoami' });
+    const bridge = new RestBridge(registry, {
+      restPath: '/test-rest-gate',
+      auth: sessionAuth,
+      apiKey: 'svc-key',
+    });
+    bridge.start();
+
+    try {
+      test.equal((await post('/test-rest-gate/restTest_whoami')).status, 401);
+      test.equal((await post('/test-rest-gate/restTest_whoami', { token: 'svc-key' })).status, 200);
+      test.equal((await post('/test-rest-gate/restTest_whoami', { token: 'user:u2' })).status, 200);
+    } finally {
+      bridge.stop();
+    }
+  },
+);
+
+Tinytest.addAsync('RestBridge - Meteor.Error reasons map to HTTP statuses', async function (test) {
+  const registry = freshRegistry();
+  registry.register('restTest.notAuthorized', { description: 'na' });
+  registry.register('restTest.notFound', { description: 'nf' });
+  const bridge = new RestBridge(registry, { restPath: '/test-rest-status' });
+  bridge.start();
+
+  try {
+    const forbidden = await post('/test-rest-status/restTest_notAuthorized');
+    test.equal(forbidden.status, 403);
+    test.equal(forbidden.body.error, 'not-authorized');
+    test.equal(forbidden.body.reason, 'Admins only');
+
+    const missing = await post('/test-rest-status/restTest_notFound');
+    test.equal(missing.status, 404);
+    test.equal(missing.body.error, 'not-found');
+  } finally {
+    bridge.stop();
+  }
+});
+
+Tinytest.addAsync(
+  'RestBridge - onBeforeInvoke can reject with a Meteor.Error (429)',
+  async function (test) {
+    const registry = freshRegistry();
+    registry.register('restTest.whoami', { description: 'whoami' });
+    const seen = [];
+    const bridge = new RestBridge(registry, {
+      restPath: '/test-rest-hook',
+      auth: sessionAuth,
+      onBeforeInvoke: async ({ methodName, userId, auth }) => {
+        seen.push({ methodName, userId, kind: auth.kind });
+        if (userId === 'blocked') throw new Meteor.Error('rate-limited', 'Slow down');
+      },
+    });
+    bridge.start();
+
+    try {
+      const ok = await post('/test-rest-hook/restTest_whoami', { token: 'user:fine' });
+      test.equal(ok.status, 200);
+      const limited = await post('/test-rest-hook/restTest_whoami', { token: 'user:blocked' });
+      test.equal(limited.status, 429);
+      test.equal(limited.body.error, 'rate-limited');
+      test.equal(seen.length, 2);
+      test.equal(seen[0], { methodName: 'restTest.whoami', userId: 'fine', kind: 'session' });
+    } finally {
+      bridge.stop();
+    }
+  },
+);
+
+Tinytest.addAsync(
+  'RestBridge - spec: false hides openapi.json, spec: auth requires credentials',
+  async function (test) {
+    const registry = freshRegistry();
+    registry.register('restTest.whoami', { description: 'whoami' });
+    const hidden = new RestBridge(registry, { restPath: '/test-rest-spec-off', spec: false });
+    const gated = new RestBridge(registry, {
+      restPath: '/test-rest-spec-auth',
+      spec: 'auth',
+      auth: sessionAuth,
+    });
+    hidden.start();
+    gated.start();
+
+    try {
+      test.equal((await fetch(`${BASE_URL}/test-rest-spec-off/openapi.json`)).status, 404);
+      test.equal((await fetch(`${BASE_URL}/test-rest-spec-auth/openapi.json`)).status, 401);
+      const ok = await fetch(`${BASE_URL}/test-rest-spec-auth/openapi.json`, {
+        headers: { Authorization: 'Bearer user:u1' },
+      });
+      test.equal(ok.status, 200);
+      const spec = await ok.json();
+      test.equal(spec.components.securitySchemes.sessionAuth.scheme, 'bearer');
+    } finally {
+      hidden.stop();
+      gated.stop();
+    }
+  },
+);
+
+Tinytest.addAsync(
+  'RestBridge - endpoint listing reports each method auth policy',
+  async function (test) {
+    const registry = freshRegistry();
+    registry.register('restTest.whoami', { description: 'whoami', auth: 'required' });
+    registry.register('restTest.echo', { description: 'echo', auth: 'none' });
+    const bridge = new RestBridge(registry, { restPath: '/test-rest-list-auth' });
+    bridge.start();
+
+    try {
+      const res = await fetch(`${BASE_URL}/test-rest-list-auth/`);
+      const body = await res.json();
+      const byMethod = Object.fromEntries(body.endpoints.map((e) => [e.method, e.auth]));
+      test.equal(byMethod['restTest.whoami'], 'required');
+      test.equal(byMethod['restTest.echo'], 'none');
     } finally {
       bridge.stop();
     }
