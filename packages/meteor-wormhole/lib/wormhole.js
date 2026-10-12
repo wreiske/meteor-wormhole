@@ -2,6 +2,7 @@ import { MethodRegistry } from './registry';
 import { installHook, removeHook } from './hooks';
 import { McpBridge } from './mcp-bridge';
 import { RestBridge } from './rest-bridge';
+import { PluginHost } from './plugins';
 
 /**
  * Wormhole — the main API for connecting Meteor methods to MCP.
@@ -21,6 +22,7 @@ class WormholeManager {
     this._restBridge = null;
     this._initialized = false;
     this._options = {};
+    this._pluginHost = new PluginHost();
   }
 
   /**
@@ -37,6 +39,8 @@ class WormholeManager {
    * @param {string} [options.rest.path='/api'] - Base path for REST endpoints
    * @param {boolean} [options.rest.docs=true] - Serve Swagger UI at <path>/docs
    * @param {string|null} [options.rest.apiKey] - API key for REST (defaults to main apiKey)
+   * @param {object} [options.context={}] - App-provided context passed to plugins
+   *   (e.g. auth resolvers, audit logger, storage paths)
    * @returns {void}
    * @throws {Error} If Wormhole is already initialized
    */
@@ -55,6 +59,7 @@ class WormholeManager {
       version: options.version || '1.0.0',
       apiKey: options.apiKey || null,
       exclude: options.exclude || [],
+      context: options.context || {},
       rest: {
         enabled: restEnabled,
         path: (typeof restInput === 'object' && restInput.path) || '/api',
@@ -91,9 +96,49 @@ class WormholeManager {
     }
 
     this._initialized = true;
+
+    // Start any registered plugins (and allow late registration via use()).
+    // Clone nested option objects so plugins can't mutate Wormhole's internal
+    // configuration (notably `rest` and `exclude`). `context` is intentionally
+    // shared by reference — it is the app's own object.
+    this._pluginHost.startAll({
+      registry: this._registry,
+      options: {
+        ...this._options,
+        rest: { ...this._options.rest },
+        exclude: [...this._options.exclude],
+      },
+      context: this._options.context,
+    });
+
     console.info(
       `[Wormhole] MCP server initialized at ${this._options.path} (mode: ${this._options.mode})`,
     );
+  }
+
+  /**
+   * Register a Wormhole plugin (e.g. transport bridges or ingest endpoints).
+   *
+   * May be called before or after init(): plugins registered before init()
+   * start during init(); plugins registered after init() start immediately.
+   *
+   * The plugin's `start(api)` receives an API object with:
+   * `registry` (the method registry), `options` (a copy of the resolved init
+   * options), `context` (the app-provided context), and
+   * `mount(path, handler)` (attach a connect-style handler to the web server).
+   *
+   * @param {object} plugin - The plugin to register.
+   * @param {string} plugin.name - Unique plugin name.
+   * @param {(api: object) => (void | Promise<void>)} plugin.start - Startup
+   *   hook, called with the plugin API.
+   * @param {() => (void | Promise<void>)} [plugin.stop] - Optional cleanup
+   *   hook, called on reset/destroy.
+   * @returns {void}
+   * @throws {Error} If the plugin is malformed (missing `name` or `start`) or
+   *   a plugin with the same `name` is already registered.
+   */
+  use(plugin) {
+    this._pluginHost.use(plugin);
   }
 
   /**
@@ -152,6 +197,7 @@ class WormholeManager {
     if (this._restBridge) {
       this._restBridge.destroy();
     }
+    this._pluginHost.stopAll();
     removeHook();
     this._registry.clear();
     this._initialized = false;

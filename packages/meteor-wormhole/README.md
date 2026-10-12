@@ -17,6 +17,8 @@
 - **API Key Authentication** — Optional bearer token auth for MCP and REST endpoints
 - **Input & Output Schemas** — Define JSON Schema for method parameters and return values
 - **Smart Defaults** — Auto-excludes internal Meteor, DDP, and Accounts methods
+- **Plugin Host** — Register custom transports and HTTP endpoints with `Wormhole.use()`, no forking required
+- **App Context** — Pass app-provided dependencies (auth resolvers, audit loggers, storage paths) through to plugins
 
 ## Requirements
 
@@ -73,6 +75,7 @@ Wormhole.init({
 | `apiKey`  | `string \| null`       | `null`              | Bearer token for authentication. If set, all requests must include `Authorization: Bearer <apiKey>`. |
 | `exclude` | `(string \| RegExp)[]` | `[]`                | Method name patterns to exclude in `'all'` mode. Supports exact strings and RegExp.                  |
 | `rest`    | `object \| boolean`    | `false`             | REST API configuration (see below). Pass `true` to enable with defaults.                             |
+| `context` | `object`               | `{}`                | App-provided context object passed to every plugin's `start(api)` (see [Plugins](#plugins)).         |
 
 #### REST Options (`options.rest`)
 
@@ -258,6 +261,90 @@ curl -X POST http://localhost:3000/api/todos_add \
 - **Max body size**: 1 MB
 - **Content-Type**: Must be `application/json`
 
+## Plugins
+
+The built-in MCP and REST bridges cover most cases, but some apps need their own
+transport (e.g. a custom Fastify server) or a bespoke HTTP endpoint (e.g. a file
+ingest route) — and they often need app-specific dependencies inside those
+endpoints, like "who is the current user", an audit logger, or a storage path.
+
+The plugin host lets you add those **without forking the package**. Register a
+plugin with `Wormhole.use()` and it receives a small, stable API plus any
+app-provided `context`.
+
+### `Wormhole.use(plugin)`
+
+Register a plugin. May be called **before or after** `Wormhole.init()` — plugins
+registered after init start immediately.
+
+```js
+import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
+
+const myTransport = {
+  name: 'my-transport', // unique; duplicate names throw
+  start(api) {
+    // Mount a connect-style handler on Meteor's web server.
+    api.mount('/my-endpoint', (req, res, next) => {
+      const user = api.context.resolveUser?.(req);
+      res.end(JSON.stringify({ exposed: api.registry.names(), user: user?._id }));
+    });
+  },
+  stop() {
+    // Optional: clean up when Wormhole is reset/destroyed.
+  },
+};
+
+Wormhole.init({
+  mode: 'opt-in',
+  context: {
+    resolveUser: (req) => /* ...resolve from headers... */ null,
+    audit: (action, meta) => AuditLog.record(action, meta),
+    storagePath: process.env.STORAGE_PATH,
+  },
+});
+
+Wormhole.use(myTransport);
+```
+
+### Plugin shape
+
+```ts
+interface WormholePlugin<TContext = Record<string, unknown>> {
+  name: string;
+  start(api: WormholePluginApi<TContext>): void | Promise<void>;
+  stop?(): void | Promise<void>;
+}
+```
+
+### The `api` passed to `start()`
+
+| Property                | Description                                                            |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `api.registry`          | The method registry — inspect which methods are exposed.               |
+| `api.options`           | The resolved `Wormhole.init()` options.                                |
+| `api.context`           | The app-provided `context` object from `init()`.                       |
+| `api.mount(path, fn)`   | Mount a connect-style `(req, res, next)` handler on the web server.    |
+
+### Lifecycle & error handling
+
+- Plugins start in registration order; a plugin that throws (or rejects) during
+  `start()` is logged and skipped without taking down the others.
+- On `Wormhole._reset()` the host calls each plugin's `stop()` in **reverse**
+  order.
+- Registering two plugins with the same `name` throws.
+
+### `sanitizeToolName(name)`
+
+Exported helper that maps a Meteor method name to the same URL/tool-safe name the
+built-in bridges use (e.g. `Listen.End` → `Listen_End`). Useful when your custom
+transport needs to route to exposed methods.
+
+```js
+import { sanitizeToolName } from 'meteor/wreiske:meteor-wormhole';
+
+sanitizeToolName('todos.add'); // 'todos_add'
+```
+
 ## Authentication
 
 When `apiKey` is set, all MCP and REST requests (except Swagger UI and OpenAPI spec) require a bearer token:
@@ -289,6 +376,10 @@ Wormhole.registry.get('todos.add');
 ### `Wormhole.options`
 
 Returns a copy of the resolved configuration options.
+
+### `Wormhole.use(plugin)`
+
+Register a Wormhole plugin (custom transport or HTTP endpoint). See [Plugins](#plugins).
 
 ### `generateOpenApiSpec(registry, options)`
 

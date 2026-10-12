@@ -5,3 +5,4 @@ import './mcp-bridge-tests';
 import './wormhole-tests';
 import './openapi-tests';
 import './rest-bridge-tests';
+import './plugins-tests';

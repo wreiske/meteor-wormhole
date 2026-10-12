@@ -17,6 +17,8 @@ https://wormhole.meteorapp.com/
 - **API Key Authentication**: Optional bearer token auth for MCP and REST endpoints
 - **Input Schemas**: Define JSON Schema or Zod-compatible schemas for method parameters
 - **Smart Defaults**: Auto-excludes internal Meteor/accounts methods in all-in mode
+- **Plugin Host**: Register custom transports and HTTP endpoints with `Wormhole.use()` — no forking required
+- **App Context**: Pass app-provided dependencies (auth, audit, storage) through to plugins
 
 ## Project Structure
 
