@@ -1,6 +1,6 @@
 Package.describe({
   name: 'wreiske:meteor-wormhole',
-  version: '0.3.0',
+  version: '0.4.0',
   summary:
     'A cosmic bridge connecting Meteor methods to AI agents through MCP, REST API, and OpenAPI',
   git: 'https://github.com/wreiske/meteor-wormhole',

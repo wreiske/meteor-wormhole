@@ -99,6 +99,12 @@ declare module 'meteor/wreiske:meteor-wormhole' {
 
   interface WormholeManager {
     init(options?: WormholeInitOptions): void;
+    /**
+     * Create an independent instance (own registry, bridges, auth and plugins),
+     * initialized with `options` when given. Only one instance may use
+     * `mode: 'all'`, and initialized instances may not share or nest paths.
+     */
+    create(options?: WormholeInitOptions): WormholeManager;
     use<TContext = Record<string, unknown>>(plugin: WormholePlugin<TContext>): void;
     expose(methodName: string, options?: ExposeOptions): void;
     unexpose(methodName: string): void;
@@ -112,6 +118,7 @@ declare module 'meteor/wreiske:meteor-wormhole' {
   }
 
   export const Wormhole: WormholeManager;
+  export const WormholeManager: { new (): WormholeManager };
 
   interface GenerateOpenApiSpecOptions {
     name?: string;

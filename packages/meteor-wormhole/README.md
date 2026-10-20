@@ -20,6 +20,7 @@
 - **Smart Defaults** — Auto-excludes internal Meteor, DDP, and Accounts methods
 - **Plugin Host** — Register custom transports and HTTP endpoints with `Wormhole.use()`, no forking required
 - **App Context** — Pass app-provided dependencies (auth resolvers, audit loggers, storage paths) through to plugins
+- **Multiple Bridges** — Run independent instances side by side (e.g. an API-key bridge and a session-auth app API) with `Wormhole.create()`
 
 ## Requirements
 
@@ -516,6 +517,38 @@ Returns a copy of the resolved configuration options.
 ### `Wormhole.use(plugin)`
 
 Register a Wormhole plugin (custom transport or HTTP endpoint). See [Plugins](#plugins).
+
+### `Wormhole.create(options?)`
+
+Create an independent instance with its own registry, MCP/REST bridges, auth configuration, `onBeforeInvoke` hook and plugin host. Use it when one app needs bridges with different auth rules — for example an API-key bridge for a game plugin next to a session-authenticated API for mobile apps:
+
+```js
+import { Wormhole } from 'meteor/wreiske:meteor-wormhole';
+
+// Bridge 1: per-server API keys checked inside each method
+Wormhole.init({
+  mode: 'opt-in',
+  mcp: { enabled: false },
+  rest: { enabled: true, path: '/api/v1/plugin' },
+});
+Wormhole.expose('Plugin.heartbeat', { inputSchema: { ... } });
+
+// Bridge 2: mobile app API authenticated with Meteor login tokens
+const AppApi = Wormhole.create({
+  mode: 'opt-in',
+  mcp: { enabled: false },
+  auth: true,
+  rest: { enabled: true, path: '/api/app/rpc', spec: 'auth' },
+  onBeforeInvoke: async ({ req, methodName }) => { /* rate limit */ },
+});
+AppApi.expose('Users.me', { auth: 'required' });
+```
+
+Each instance only sees the methods exposed on it, and serves its own `openapi.json`. The same Meteor method may be exposed on several instances. Rules:
+
+- Only one instance per process may use `mode: 'all'` (it patches `Meteor.methods`); `init()` throws for a second one.
+- Initialized instances may not share or nest MCP/REST paths (`/api` and `/api/app` conflict, `/api` and `/api2` do not); `init()` throws on overlap. Paths are released by `_reset()`.
+- `create()` without options returns an uninitialized instance; call `init()` on it later.
 
 ### `generateOpenApiSpec(registry, options)`
 

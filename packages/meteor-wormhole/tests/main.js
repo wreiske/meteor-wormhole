@@ -9,3 +9,4 @@ import './plugins-tests';
 import './auth-tests';
 import './errors-tests';
 import './invoke-tests';
+import './multi-instance-tests';

@@ -1,9 +1,42 @@
 import { MethodRegistry } from './registry';
-import { installHook, removeHook } from './hooks';
+import { installHook, removeHook, isHooked } from './hooks';
 import { McpBridge } from './mcp-bridge';
 import { RestBridge } from './rest-bridge';
 import { PluginHost } from './plugins';
 import { normalizeAuthOptions, createAccountsTokenResolver, resolveRequestAuth } from './auth';
+
+/**
+ * HTTP paths claimed by initialized instances (path -> instance). Each
+ * instance mounts its own connect handlers by prefix, so two live instances on
+ * the same or nested paths (`/api` and `/api/app`) would shadow each other —
+ * `init()` refuses that up front.
+ */
+const _claimedPaths = new Map();
+
+function pathsOverlap(a, b) {
+  const x = a.replace(/\/+$/, '');
+  const y = b.replace(/\/+$/, '');
+  return x === y || x.startsWith(`${y}/`) || y.startsWith(`${x}/`);
+}
+
+function claimPaths(instance, paths) {
+  for (const path of paths) {
+    for (const [claimed, owner] of _claimedPaths) {
+      if (owner !== instance && pathsOverlap(path, claimed)) {
+        throw new Error(
+          `Wormhole path '${path}' overlaps '${claimed}', already used by another initialized instance. Give each instance its own non-nested \`path\` / \`rest.path\`.`,
+        );
+      }
+    }
+  }
+  for (const path of paths) _claimedPaths.set(path, instance);
+}
+
+function releasePaths(instance) {
+  for (const [path, owner] of _claimedPaths) {
+    if (owner === instance) _claimedPaths.delete(path);
+  }
+}
 
 /**
  * Wormhole — the main API for connecting Meteor methods to MCP.
@@ -16,7 +49,7 @@ import { normalizeAuthOptions, createAccountsTokenResolver, resolveRequestAuth }
  *   Wormhole.init({ mode: 'opt-in' });
  *   Wormhole.expose('myMethod', { description: '...' });
  */
-class WormholeManager {
+export class WormholeManager {
   constructor() {
     this._registry = new MethodRegistry();
     this._bridge = null;
@@ -25,6 +58,26 @@ class WormholeManager {
     this._options = {};
     this._pluginHost = new PluginHost();
     this._tokenResolver = null;
+    this._ownsHook = false;
+  }
+
+  /**
+   * Create an independent Wormhole instance with its own registry, bridges,
+   * auth configuration and plugin host — e.g. a session-authenticated app API
+   * at `/api/app/rpc` next to an API-key bridge at `/api/v1/plugin`.
+   *
+   * Only one instance in the process may use `mode: 'all'` (it patches the
+   * global `Meteor.methods`), and two initialized instances may not share an
+   * MCP or REST path.
+   *
+   * @param {object} [options] - When given, the new instance is initialized
+   *   with them (same shape as `init()`); otherwise call `init()` yourself.
+   * @returns {WormholeManager}
+   */
+  create(options) {
+    const instance = new WormholeManager();
+    if (options !== undefined) instance.init(options);
+    return instance;
   }
 
   /**
@@ -98,12 +151,29 @@ class WormholeManager {
       },
     };
 
+    if (this._options.mode === 'all' && isHooked()) {
+      this._options = {};
+      throw new Error(
+        "Another Wormhole instance already uses mode 'all'. Only one instance per process may hook Meteor.methods; use mode 'opt-in' for the others.",
+      );
+    }
+    try {
+      claimPaths(this, [
+        ...(mcpEnabled ? [this._options.path] : []),
+        ...(this._options.rest.enabled ? [this._options.rest.path] : []),
+      ]);
+    } catch (err) {
+      this._options = {};
+      throw err;
+    }
+
     // Built-in accounts-base resolver (only when auth is on and no custom resolver given)
     this._tokenResolver = auth.enabled && !auth.resolveUser ? createAccountsTokenResolver() : null;
 
     // In "all" mode, hook Meteor.methods to auto-register
     if (this._options.mode === 'all') {
       installHook(this._registry, { exclude: this._options.exclude });
+      this._ownsHook = true;
     }
 
     const shared = {
@@ -280,7 +350,11 @@ class WormholeManager {
       this._restBridge.destroy();
     }
     const stopped = this._pluginHost.stopAll();
-    removeHook();
+    if (this._ownsHook) {
+      removeHook();
+      this._ownsHook = false;
+    }
+    releasePaths(this);
     this._registry.clear();
     this._initialized = false;
     this._bridge = null;
