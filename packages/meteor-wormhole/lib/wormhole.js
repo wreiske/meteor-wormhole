@@ -13,9 +13,10 @@ import { normalizeAuthOptions, createAccountsTokenResolver, resolveRequestAuth }
  */
 const _claimedPaths = new Map();
 
+// Connect matches mount paths case-insensitively, so `/api` and `/API/app` overlap too
 function pathsOverlap(a, b) {
-  const x = a.replace(/\/+$/, '');
-  const y = b.replace(/\/+$/, '');
+  const x = a.replace(/\/+$/, '').toLowerCase();
+  const y = b.replace(/\/+$/, '').toLowerCase();
   return x === y || x.startsWith(`${y}/`) || y.startsWith(`${x}/`);
 }
 
@@ -151,13 +152,17 @@ export class WormholeManager {
       },
     };
 
-    if (this._options.mode === 'all' && isHooked()) {
-      this._options = {};
-      throw new Error(
-        "Another Wormhole instance already uses mode 'all'. Only one instance per process may hook Meteor.methods; use mode 'opt-in' for the others.",
-      );
-    }
+    // Check every prerequisite before claiming anything, so a failed init()
+    // leaves no paths or hooks behind
+    let tokenResolver;
     try {
+      if (this._options.mode === 'all' && isHooked()) {
+        throw new Error(
+          "Another Wormhole instance already uses mode 'all'. Only one instance per process may hook Meteor.methods; use mode 'opt-in' for the others.",
+        );
+      }
+      // Built-in accounts-base resolver (only when auth is on and no custom resolver given)
+      tokenResolver = auth.enabled && !auth.resolveUser ? createAccountsTokenResolver() : null;
       claimPaths(this, [
         ...(mcpEnabled ? [this._options.path] : []),
         ...(this._options.rest.enabled ? [this._options.rest.path] : []),
@@ -166,48 +171,52 @@ export class WormholeManager {
       this._options = {};
       throw err;
     }
+    this._tokenResolver = tokenResolver;
 
-    // Built-in accounts-base resolver (only when auth is on and no custom resolver given)
-    this._tokenResolver = auth.enabled && !auth.resolveUser ? createAccountsTokenResolver() : null;
+    try {
+      // In "all" mode, hook Meteor.methods to auto-register
+      if (this._options.mode === 'all') {
+        installHook(this._registry, { exclude: this._options.exclude });
+        this._ownsHook = true;
+      }
 
-    // In "all" mode, hook Meteor.methods to auto-register
-    if (this._options.mode === 'all') {
-      installHook(this._registry, { exclude: this._options.exclude });
-      this._ownsHook = true;
-    }
+      const shared = {
+        auth: this._options.auth,
+        tokenResolver: this._tokenResolver,
+        onBeforeInvoke: this._options.onBeforeInvoke,
+      };
 
-    const shared = {
-      auth: this._options.auth,
-      tokenResolver: this._tokenResolver,
-      onBeforeInvoke: this._options.onBeforeInvoke,
-    };
+      // Create and start the MCP bridge
+      if (mcpEnabled) {
+        if (!this._options.apiKey && !auth.enabled) {
+          console.warn(
+            `[Wormhole] MCP server at ${this._options.path} has no apiKey and no auth configured — every registered method is callable anonymously. Pass { mcp: { enabled: false } } to disable the MCP transport.`,
+          );
+        }
+        this._bridge = new McpBridge(this._registry, { ...this._options, ...shared });
+        this._bridge.start();
+      }
 
-    // Create and start the MCP bridge
-    if (mcpEnabled) {
-      if (!this._options.apiKey && !auth.enabled) {
-        console.warn(
-          `[Wormhole] MCP server at ${this._options.path} has no apiKey and no auth configured — every registered method is callable anonymously. Pass { mcp: { enabled: false } } to disable the MCP transport.`,
+      // Optionally start the REST bridge
+      if (this._options.rest.enabled) {
+        this._restBridge = new RestBridge(this._registry, {
+          restPath: this._options.rest.path,
+          name: this._options.name,
+          version: this._options.version,
+          apiKey: this._options.rest.apiKey,
+          docs: this._options.rest.docs,
+          spec: this._options.rest.spec,
+          ...shared,
+        });
+        this._restBridge.start();
+        console.info(
+          `[Wormhole] REST API enabled at ${this._options.rest.path} (docs: ${this._options.rest.docs ? this._options.rest.path + '/docs' : 'disabled'}, auth: ${auth.enabled ? 'session' : 'apiKey-only'})`,
         );
       }
-      this._bridge = new McpBridge(this._registry, { ...this._options, ...shared });
-      this._bridge.start();
-    }
-
-    // Optionally start the REST bridge
-    if (this._options.rest.enabled) {
-      this._restBridge = new RestBridge(this._registry, {
-        restPath: this._options.rest.path,
-        name: this._options.name,
-        version: this._options.version,
-        apiKey: this._options.rest.apiKey,
-        docs: this._options.rest.docs,
-        spec: this._options.rest.spec,
-        ...shared,
-      });
-      this._restBridge.start();
-      console.info(
-        `[Wormhole] REST API enabled at ${this._options.rest.path} (docs: ${this._options.rest.docs ? this._options.rest.path + '/docs' : 'disabled'}, auth: ${auth.enabled ? 'session' : 'apiKey-only'})`,
-      );
+    } catch (err) {
+      this._stopTransports();
+      this._options = {};
+      throw err;
     }
 
     this._initialized = true;
@@ -343,25 +352,34 @@ export class WormholeManager {
    * @returns {Promise<void>}
    */
   _reset() {
+    this._stopTransports();
+    const stopped = this._pluginHost.stopAll();
+    this._registry.clear();
+    this._initialized = false;
+    this._options = {};
+    return stopped;
+  }
+
+  /**
+   * Stop both bridges, remove this instance's `Meteor.methods` hook and
+   * release its paths. Shared by `_reset()` and a failed `init()`.
+   * @private
+   */
+  _stopTransports() {
     if (this._bridge) {
       this._bridge.stop();
     }
     if (this._restBridge) {
       this._restBridge.destroy();
     }
-    const stopped = this._pluginHost.stopAll();
     if (this._ownsHook) {
       removeHook();
       this._ownsHook = false;
     }
     releasePaths(this);
-    this._registry.clear();
-    this._initialized = false;
     this._bridge = null;
     this._restBridge = null;
     this._tokenResolver = null;
-    this._options = {};
-    return stopped;
   }
 }
 

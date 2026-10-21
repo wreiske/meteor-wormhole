@@ -168,6 +168,11 @@ Tinytest.addAsync(
       () => make({ mode: 'opt-in', path: '/mi-dup', rest: { enabled: true, path: '/mi-other' } }),
       /overlaps/,
     );
+    // Connect matches mount paths case-insensitively
+    test.throws(
+      () => make({ mode: 'opt-in', mcp: false, rest: { enabled: true, path: '/MI-DUP/app' } }),
+      /overlaps/,
+    );
     // Sibling prefixes that merely share characters are fine
     const sibling = make({ mode: 'opt-in', mcp: false, rest: { enabled: true, path: '/mi-dup2' } });
     test.isTrue(sibling.initialized);
@@ -181,6 +186,61 @@ Tinytest.addAsync(
     await first._reset();
     const second = make({ mode: 'opt-in', mcp: false, rest: { enabled: true, path: '/mi-reuse' } });
     test.isTrue(second.initialized);
+  }),
+);
+
+Tinytest.addAsync(
+  'Multi-instance - a failed init() claims no paths',
+  withInstances(async function (test, make) {
+    // `auth: true` without accounts-base fails; hide the package to force it
+    const accounts = Package['accounts-base'];
+    Package['accounts-base'] = undefined;
+    try {
+      test.throws(
+        () => make({ mode: 'opt-in', auth: true, path: '/mi-fail-mcp', apiKey: 'k' }),
+        /requires the accounts-base package/,
+      );
+    } finally {
+      Package['accounts-base'] = accounts;
+    }
+    const retry = make({ mode: 'opt-in', auth: sessionAuth, path: '/mi-fail-mcp', apiKey: 'k' });
+    test.isTrue(retry.initialized);
+  }),
+);
+
+Tinytest.addAsync(
+  'Multi-instance - a reset MCP path is served by the new instance',
+  withInstances(async function (test, make) {
+    const initialize = (key) =>
+      fetch(`${BASE_URL}/mi-mcp-reuse`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json, text/event-stream',
+          Authorization: `Bearer ${key}`,
+        },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-03-26',
+            capabilities: {},
+            clientInfo: { name: 'multi-instance-test', version: '1.0.0' },
+          },
+        }),
+      }).then(async (res) => {
+        await res.text();
+        return res.status;
+      });
+
+    const first = make({ mode: 'opt-in', path: '/mi-mcp-reuse', apiKey: 'old-key' });
+    test.notEqual(await initialize('old-key'), 401);
+    await first._reset();
+
+    make({ mode: 'opt-in', path: '/mi-mcp-reuse', apiKey: 'new-key' });
+    test.equal(await initialize('old-key'), 401);
+    test.notEqual(await initialize('new-key'), 401);
   }),
 );
 

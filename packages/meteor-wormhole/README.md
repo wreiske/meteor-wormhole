@@ -547,7 +547,7 @@ AppApi.expose('Users.me', { auth: 'required' });
 Each instance only sees the methods exposed on it, and serves its own `openapi.json`. The same Meteor method may be exposed on several instances. Rules:
 
 - Only one instance per process may use `mode: 'all'` (it patches `Meteor.methods`); `init()` throws for a second one.
-- Initialized instances may not share or nest MCP/REST paths (`/api` and `/api/app` conflict, `/api` and `/api2` do not); `init()` throws on overlap. Paths are released by `_reset()`.
+- Initialized instances may not share or nest MCP/REST paths, compared case-insensitively like the web server does (`/api` and `/API/app` conflict, `/api` and `/api2` do not); `init()` throws on overlap. Paths are released by `_reset()`, and a failed `init()` claims none.
 - `create()` without options returns an uninitialized instance; call `init()` on it later.
 
 ### `generateOpenApiSpec(registry, options)`
