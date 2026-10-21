@@ -127,13 +127,26 @@ export class McpBridge {
     this._options = options;
     this._transports = new Map(); // sessionId → { server, transport }
     this._started = false;
+    this._mounted = false;
   }
 
+  /**
+   * Mount the MCP endpoint. Connect handlers can't be unmounted, so the
+   * handler is mounted once and gated on `_started`: a stopped bridge passes
+   * requests on, letting a newer instance serve the same path.
+   */
   start() {
     if (this._started) return;
+    this._started = true;
+    if (this._mounted) return;
+    this._mounted = true;
     const path = this._options.path || '/mcp';
 
-    WebApp.connectHandlers.use(path, async (req, res) => {
+    WebApp.connectHandlers.use(path, async (req, res, next) => {
+      if (!this._started) {
+        if (typeof next === 'function') next();
+        return;
+      }
       try {
         await this._handleRequest(req, res);
       } catch (_err) {
@@ -143,8 +156,6 @@ export class McpBridge {
         }
       }
     });
-
-    this._started = true;
   }
 
   stop() {
